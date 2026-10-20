@@ -1,0 +1,117 @@
+# =========================
+# Unreal Engine
+# =========================
+
+# Build files
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# VS / Rider / IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# Compiled source files
+*.dll
+*.exe
+*.app
+*.ipa
+*.dylib
+*.lib
+*.so
+*.obj
+*.o
+*.a
+
+# Unreal generated project files
+*.xcodeproj
+*.xcworkspace
+*.sln
+*.opensdf
+*.sdf
+*.VC.db
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
+*.cache
+
+# Autosaves
+Saved/Autosaves/
+Saved/Backup/
+
+# Crash reports
+Saved/Crashes/
+
+# Local config (machine-specific)
+Saved/Config/Windows/
+Saved/Config/Linux/
+Saved/Config/Mac/
+
+# Derived data cache (important ignorar)
+DerivedDataCache/
+
+# Packaging
+Saved/StagedBuilds/
+
+# Android
+*.apk
+*.obb
+*.keystore
+
+# iOS
+*.ipa
+
+# Mac
+*.dSYM
+
+# Windows
+*.pdb
+
+# Editor settings (opcional ignorar)
+Saved/Config/EditorPerProjectUserSettings.ini
+
+# =========================
+# Git / OS lixo
+# =========================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Mac
+.DS_Store
+
+# Linux
+*~
+
+# =========================
+# Plugins (caso necessário)
+# =========================
+
+# Ignore binaries dentro de plugins
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# =========================
+# Opcional (dependendo do time)
+# =========================
+
+# Ignore arquivos grandes de cache
+DerivedDataCache/
+
+# Ignore arquivos de profiling
+*.ue4stats

@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Puzzles",
+  "Description": "Reusable item-slot puzzles with data-driven definitions and transactional insertion.",
+  "Category": "Gameplay",
+  "CanContainContent": true,
+  "Modules": [{ "Name": "HorrorPuzzles", "Type": "Runtime", "LoadingPhase": "Default" }]
+}

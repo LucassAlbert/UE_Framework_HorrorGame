@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Objectives",
+  "Description": "Independent data-driven objective journal based on persistent gameplay facts.",
+  "Category": "Gameplay",
+  "CanContainContent": true,
+  "Modules": [{ "Name": "HorrorObjectives", "Type": "Runtime", "LoadingPhase": "Default" }]
+}

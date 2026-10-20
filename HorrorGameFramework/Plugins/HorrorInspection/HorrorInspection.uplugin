@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Inspection",
+  "Description": "Independent item preview, rotation and zoom. No inventory, UI or save dependencies.",
+  "Category": "Gameplay",
+  "CanContainContent": false,
+  "Modules": [{ "Name": "HorrorInspection", "Type": "Runtime", "LoadingPhase": "Default" }]
+}

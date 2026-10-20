@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Inventory",
+  "Description": "Reusable slot inventory and item definitions. No dependency on the framework character, UI or save plugins.",
+  "Category": "Gameplay",
+  "CanContainContent": true,
+  "Modules": [{ "Name": "HorrorInventory", "Type": "Runtime", "LoadingPhase": "Default" }]
+}

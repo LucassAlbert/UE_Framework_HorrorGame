@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Documents",
+  "Description": "Reusable document definitions and player collections, independent from inventory, UI and saves.",
+  "Category": "Horror Framework",
+  "CanContainContent": true,
+  "Modules": [ { "Name": "HorrorDocuments", "Type": "Runtime", "LoadingPhase": "Default" } ]
+}

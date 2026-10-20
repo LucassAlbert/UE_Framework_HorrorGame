@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Dialogue",
+  "Description": "Sequential dialogue definitions and sessions independent from presentation, interaction and saves.",
+  "Category": "Horror Framework",
+  "CanContainContent": true,
+  "Modules": [ { "Name": "HorrorDialogue", "Type": "Runtime", "LoadingPhase": "Default" } ]
+}

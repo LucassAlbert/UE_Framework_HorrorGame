@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror Audio",
+  "Description": "Managed audio playback, per-sound pause policies and independent volume preferences.",
+  "Category": "Horror Framework",
+  "CanContainContent": true,
+  "Modules": [{ "Name": "HorrorAudio", "Type": "Runtime", "LoadingPhase": "Default" }]
+}

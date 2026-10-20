@@ -1,0 +1,10 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1",
+  "FriendlyName": "Horror AI",
+  "Description": "Configurable enemy perception, navigation, pursuit and gameplay noise.",
+  "Category": "Horror Framework",
+  "CanContainContent": true,
+  "Modules": [{ "Name": "HorrorAI", "Type": "Runtime", "LoadingPhase": "Default" }]
+}

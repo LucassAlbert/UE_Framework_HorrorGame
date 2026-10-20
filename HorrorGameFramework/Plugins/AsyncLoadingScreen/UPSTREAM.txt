@@ -1,0 +1,5 @@
+Source: https://github.com/truong-bui/AsyncLoadingScreen
+Commit: 77f3cdcfc32afa2422d1208e04b61df3bd9a52dc
+Version: 1.7.0 (Unreal Engine 5.8)
+License: MIT; see LICENSE.
+Vendored to preserve the project's configured loading screens.
