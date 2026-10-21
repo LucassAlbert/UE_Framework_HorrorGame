@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Types/Boot/BootTypes.h"
+#include "Subsystems/GameFlowSubsystem.h"
 #include "BootManagerSubsystem.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBootStateChanged, EBootState, NewState);
@@ -33,6 +34,15 @@ private:
     UFUNCTION()
     void HandleUIReady(bool bSuccess);
 
+    UFUNCTION() void HandleSaveLoadStarted();
+    UFUNCTION() void HandleSaveLoaded(int32 SlotIndex, bool bSuccess, FText Message);
+    UFUNCTION() void HandleSaveWorldReady();
+    void HoldPreparationPause();
+    void ReleasePreparationPause();
+    TWeakObjectPtr<UWorld> PreparationWorld;
+    TWeakObjectPtr<UWorld> BeforeLoadWorld;
+    EGameFlowState BeforeLoadState = EGameFlowState::MainMenu;
+    bool bPreparationPauseOwned = false;
     EBootState CurrentState = EBootState::None;
     FDelegateHandle MapLoadedHandle;
     bool bUIReady = false;

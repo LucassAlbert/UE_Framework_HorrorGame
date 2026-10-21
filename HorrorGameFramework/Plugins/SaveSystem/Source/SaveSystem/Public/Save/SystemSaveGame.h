@@ -12,12 +12,18 @@ class SAVESYSTEM_API USystemSaveGame : public USaveGame
 public:
     UPROPERTY()
     FString CurrentLevel;
+    UPROPERTY() FString PersistentMapPackage;
+    UPROPERTY() FName StreamingWorldId;
+    UPROPERTY() FName ActiveAreaId;
+    UPROPERTY() FVector StreamingAnchor = FVector::ZeroVector;
+    UPROPERTY() TArray<FName> VisitedAreas;
+    UPROPERTY() TArray<FName> ResidentAreas;
     UPROPERTY()
     TArray<FActorSaveData> SavedActors;
     UPROPERTY()
     TSet<FGuid> DestroyedActors;
     UPROPERTY()
-    int32 FormatVersion = 2;
+    int32 FormatVersion = 3;
     UPROPERTY()
     FDateTime SavedAt;
 };

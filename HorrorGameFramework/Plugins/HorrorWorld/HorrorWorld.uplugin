@@ -1,0 +1,8 @@
+{
+  "FileVersion": 3, "Version": 1, "VersionName": "0.1",
+  "FriendlyName": "Horror World", "Category": "Horror Framework",
+  "Description": "Asynchronous area streaming and resident actor continuity with explicit save integration.",
+  "CanContainContent": true,
+  "Modules": [{ "Name": "HorrorWorld", "Type": "Runtime", "LoadingPhase": "Default" }],
+  "Plugins": [{ "Name": "SaveSystem", "Enabled": true }]
+}

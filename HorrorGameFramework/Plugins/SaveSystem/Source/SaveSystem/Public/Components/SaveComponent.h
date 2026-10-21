@@ -20,6 +20,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Save")
     FName PersistentKey;
 
+    // Assigned by the streaming world. None identifies persistent-world participants.
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Save") FName StreamingAreaId;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Save")
     bool bSaveTransform = true;
 

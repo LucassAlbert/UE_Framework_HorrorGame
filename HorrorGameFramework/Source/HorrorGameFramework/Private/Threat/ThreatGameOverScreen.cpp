@@ -26,7 +26,7 @@ TSharedRef<SWidget> UThreatGameOverScreen::RebuildWidget()
     Layout->AddChildToVerticalBox(Title);
     LoadButton = WidgetTree->ConstructWidget<UButton>();
     UTextBlock* LoadText = WidgetTree->ConstructWidget<UTextBlock>();
-    LoadText->SetText(NSLOCTEXT("Threat", "LoadLatest", "Carregar último save deste mapa"));
+    LoadText->SetText(NSLOCTEXT("Threat", "LoadLatest", "Carregar último save"));
     LoadButton->SetContent(LoadText);
     LoadButton->OnClicked.AddDynamic(this, &UThreatGameOverScreen::LoadLatest);
     Layout->AddChildToVerticalBox(LoadButton);
@@ -48,6 +48,7 @@ void UThreatGameOverScreen::OnScreenEnter()
 }
 void UThreatGameOverScreen::OnScreenExit()
 {
+    bLoading = false;
     GetGameInstance()->GetSubsystem<USaveSubsystem>()->OnLoadCompleted.RemoveDynamic(this, &UThreatGameOverScreen::HandleLoaded);
     Super::OnScreenExit();
 }
@@ -57,8 +58,8 @@ void UThreatGameOverScreen::LoadLatest()
     bLoading = true;
     LoadButton->SetIsEnabled(false);
     RestartButton->SetIsEnabled(false);
-    Feedback->SetText(NSLOCTEXT("Threat", "Loading", "Procurando o save mais recente deste mapa..."));
-    if (!GetGameInstance()->GetSubsystem<USaveSubsystem>()->LoadLatestForCurrentLevel() && bLoading)
+    Feedback->SetText(NSLOCTEXT("Threat", "Loading", "Procurando o save mais recente..."));
+    if (!GetGameInstance()->GetSubsystem<USaveSubsystem>()->LoadLatest() && bLoading)
         HandleLoaded(INDEX_NONE, false, NSLOCTEXT("Threat", "Busy", "Há uma operação de save em andamento. Tente novamente."));
 }
 void UThreatGameOverScreen::HandleLoaded(int32 SlotIndex, bool bSuccess, FText Message)
@@ -72,10 +73,7 @@ void UThreatGameOverScreen::HandleLoaded(int32 SlotIndex, bool bSuccess, FText M
         RestartButton->SetIsEnabled(true);
         return;
     }
-    GetGameInstance()->GetSubsystem<UGameFlowSubsystem>()->SetGameState(EGameFlowState::Playing);
-    UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
-    UI->ClearScreens();
-    UI->OpenGameplayUI();
+    // Boot finalizes the presentation after the destination world is ready.
 }
 void UThreatGameOverScreen::Restart()
 {

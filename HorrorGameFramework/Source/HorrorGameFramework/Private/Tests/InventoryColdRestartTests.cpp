@@ -135,8 +135,8 @@ bool FHorrorInventoryColdRestartTest::RunTest(const FString& Parameters)
     if (!TestNotNull(TEXT("Previous process snapshot readable"), Snapshot)) { State->Cleanup(); return false; }
     Save->OperationWorld = World;
     Save->ActiveSlot = 0;
-    Save->bBusy = true;
-    Save->OnSlotLoaded(Slot, 0, Snapshot);
+    Save->bBusy = Save->bLoadingSlot = true;
+    Save->OnSlotLoaded(Slot, 0, Snapshot, ++Save->LoadGeneration);
     AddCommand(new InventoryColdTest::FWaitForLoad(State));
     return true;
 }

@@ -14,6 +14,9 @@
 #include "Serialization/MemoryReader.h"
 #include "Serialization/ObjectAndNameAsStringProxyArchive.h"
 #include "UObject/UnrealType.h"
+#include "Engine/Level.h"
+#include "Misc/PackageName.h"
+#include "Containers/Ticker.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHorrorSave, Log, All);
 
@@ -53,11 +56,17 @@ void USaveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
     ActorRegistry = NewObject<UActorRegistry>(this);
+    MapLoadedHandle = FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(this, &USaveSubsystem::HandleMapLoaded);
     WorldCleanupHandle = FWorldDelegates::OnWorldCleanup.AddUObject(this, &USaveSubsystem::HandleWorldCleanup);
 }
 
 void USaveSubsystem::Deinitialize()
 {
+    ++LoadGeneration;
+    FCoreUObjectDelegates::PostLoadMapWithWorld.Remove(MapLoadedHandle);
+    if (LoadDeadlineHandle.IsValid()) FTSTicker::GetCoreTicker().RemoveTicker(LoadDeadlineHandle);
+    LoadDeadlineHandle.Reset();
+    AreaRestoreCompletion.Unbind();
     FWorldDelegates::OnWorldCleanup.Remove(WorldCleanupHandle);
     if (RestoreLoadHandle) RestoreLoadHandle->CancelHandle();
     RestoreLoadHandle.Reset();
@@ -72,16 +81,24 @@ void USaveSubsystem::Deinitialize()
 
 void USaveSubsystem::HandleWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
 {
-    if (World && World->GetGameInstance() == GetGameInstance())
+    if (World && World == GetWorld())
     {
         ActorRegistry->Reset();
         DestroyedActors.Reset();
+        CachedAreaActors.Reset();
+        VisitedAreaIds.Reset();
+        WorldProvider.Reset();
+        if (bLoadingSlot && !bAwaitingMap) CompleteLoad(false, NSLOCTEXT("HorrorSave", "WorldInterrupted", "O mundo mudou durante o carregamento."));
     }
 }
 
 void USaveSubsystem::RecordDestroyedActor(const FGuid& ActorID)
 {
-    if (!bRestoring && ActorID.IsValid()) DestroyedActors.Add(ActorID);
+    if (!bRestoring && ActorID.IsValid())
+    {
+        DestroyedActors.Add(ActorID);
+        CachedAreaActors.Remove(ActorID);
+    }
 }
 
 void USaveSubsystem::SaveGame() { SaveToSlot(0); }
@@ -102,7 +119,8 @@ TArray<FSaveSlotInfo> USaveSubsystem::GetSlots() const
 
 bool USaveSubsystem::SaveToSlot(int32 SlotIndex)
 {
-    if (bBusy || !IsValidSlot(SlotIndex) || !GetWorld()) return false;
+    if (bBusy || !IsValidSlot(SlotIndex) || !GetWorld() || !IsWorldReady()) return false;
+    if (ISaveWorldProvider* Provider = Cast<ISaveWorldProvider>(WorldProvider.Get())) Provider->RefreshSaveAreaBindings();
     USystemSaveGame* Snapshot = NewObject<USystemSaveGame>(this);
     FString Error;
     if (!CaptureWorld(Snapshot, Error))
@@ -120,89 +138,25 @@ bool USaveSubsystem::SaveToSlot(int32 SlotIndex)
     return true;
 }
 
-bool USaveSubsystem::LoadFromSlot(int32 SlotIndex)
-{
-    if (bBusy || !IsValidSlot(SlotIndex) || !GetWorld()) return false;
-    if (!UGameplayStatics::DoesSaveGameExist(GetSlotName(SlotIndex), 0))
-    {
-        OnLoadCompleted.Broadcast(SlotIndex, false, NSLOCTEXT("HorrorSave", "Missing", "Este slot nao possui um save."));
-        return false;
-    }
-    ActiveSlot = SlotIndex;
-    OperationWorld = GetWorld();
-    bBusy = true;
-    UGameplayStatics::AsyncLoadGameFromSlot(GetSlotName(SlotIndex), 0,
-        FAsyncLoadGameFromSlotDelegate::CreateUObject(this, &USaveSubsystem::OnSlotLoaded));
-    return true;
-}
-
-bool USaveSubsystem::LoadLatestForCurrentLevel()
-{
-    if (bBusy || !GetWorld() || GetWorld()->bIsTearingDown) return false;
-    bBusy = true;
-    OperationWorld = GetWorld();
-    LatestScanIndex = 0;
-    LatestCandidateSlot = INDEX_NONE;
-    LatestCandidate = nullptr;
-    bScanningLatest = true;
-    ScanNextLatestSlot();
-    return true;
-}
-
-void USaveSubsystem::ScanNextLatestSlot()
-{
-    if (!bScanningLatest) return;
-    while (LatestScanIndex < SlotCount && !UGameplayStatics::DoesSaveGameExist(GetSlotName(LatestScanIndex), 0)) ++LatestScanIndex;
-    if (OperationWorld.IsValid() && OperationWorld.Get() == GetWorld() && LatestScanIndex < SlotCount)
-    {
-        UGameplayStatics::AsyncLoadGameFromSlot(GetSlotName(LatestScanIndex), 0,
-            FAsyncLoadGameFromSlotDelegate::CreateUObject(this, &USaveSubsystem::OnLatestSlotRead));
-        return;
-    }
-    if (LatestCandidate && OperationWorld.IsValid() && OperationWorld.Get() == GetWorld())
-    {
-        ActiveSlot = LatestCandidateSlot;
-        USystemSaveGame* Candidate = LatestCandidate;
-        LatestCandidate = nullptr;
-        bScanningLatest = false;
-        OnSlotLoaded(GetSlotName(ActiveSlot), 0, Candidate);
-        return;
-    }
-    LatestCandidate = nullptr;
-    bScanningLatest = false;
-    bBusy = false;
-    OnLoadCompleted.Broadcast(INDEX_NONE, false, NSLOCTEXT("HorrorSave", "NoLevelSave", "Nenhum save válido foi encontrado para o mapa atual."));
-}
-
-void USaveSubsystem::OnLatestSlotRead(const FString& SlotName, int32 UserIndex, USaveGame* LoadedGame)
-{
-    if (!bScanningLatest) return;
-    USystemSaveGame* Candidate = Cast<USystemSaveGame>(LoadedGame);
-    if (!Candidate || Candidate->FormatVersion < 1 || Candidate->FormatVersion > 2)
-    {
-        UE_LOG(LogHorrorSave, Warning, TEXT("Cannot use slot %d while selecting the latest save: invalid data or unsupported version."), LatestScanIndex);
-    }
-    else if (OperationWorld.IsValid() && OperationWorld.Get() == GetWorld()
-        && Candidate->CurrentLevel == UGameplayStatics::GetCurrentLevelName(this, true)
-        && (!LatestCandidate || Candidate->SavedAt > LatestCandidate->SavedAt))
-    {
-        LatestCandidate = Candidate;
-        LatestCandidateSlot = LatestScanIndex;
-    }
-    ++LatestScanIndex;
-    ScanNextLatestSlot();
-}
-
-bool USaveSubsystem::CaptureWorld(USystemSaveGame* Snapshot, FString& Error)
+bool USaveSubsystem::CaptureWorld(USystemSaveGame* Snapshot, FString& Error, FName AreaId, bool bOnlyArea)
 {
     Snapshot->CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
     Snapshot->SavedAt = FDateTime::UtcNow();
+    const FString Package = GetWorld()->PersistentLevel->GetOutermost()->GetName();
+    Snapshot->PersistentMapPackage = FPackageName::GetLongPackagePath(Package) / Snapshot->CurrentLevel;
+    if (!bOnlyArea)
+    {
+        if (const ISaveWorldProvider* Provider = Cast<ISaveWorldProvider>(WorldProvider.Get()))
+            if (!Provider->CaptureWorldMetadata(*Snapshot, Error)) return false;
+        Snapshot->VisitedAreas = VisitedAreaIds.Array();
+    }
     Snapshot->DestroyedActors = DestroyedActors;
     TSet<FGuid> IDs;
     for (AActor* Actor : ActorRegistry->GetRegisteredActors())
     {
         if (Actor->GetWorld() != GetWorld()) continue;
         const USaveComponent* Save = Actor->FindComponentByClass<USaveComponent>();
+        if (bOnlyArea && (!Save || Save->StreamingAreaId != AreaId)) continue;
         if (!Save || !Save->PersistentID.IsValid() || IDs.Contains(Save->PersistentID))
         {
             Error = FString::Printf(TEXT("Invalid or duplicate save ID: %s"), *GetNameSafe(Actor));
@@ -211,6 +165,8 @@ bool USaveSubsystem::CaptureWorld(USystemSaveGame* Snapshot, FString& Error)
         IDs.Add(Save->PersistentID);
         FActorSaveData Data;
         Data.ActorID = Save->PersistentID;
+        Data.StreamingAreaId = Save->StreamingAreaId;
+        if (!Data.StreamingAreaId.IsNone()) Snapshot->VisitedAreas.AddUnique(Data.StreamingAreaId);
         if (Save->bRecreateOnLoad) Data.RuntimeClass = Actor->GetClass();
         Data.Transform = Actor->GetActorTransform();
         UPrimitiveComponent* PhysicsRoot = Cast<UPrimitiveComponent>(Actor->GetRootComponent());
@@ -244,19 +200,22 @@ bool USaveSubsystem::CaptureWorld(USystemSaveGame* Snapshot, FString& Error)
         Snapshot->DestroyedActors.Remove(Data.ActorID);
         Snapshot->SavedActors.Add(MoveTemp(Data));
     }
+    if (!bOnlyArea)
+        for (const TPair<FGuid, FActorSaveData>& Entry : CachedAreaActors)
+            if (!IDs.Contains(Entry.Key) && !DestroyedActors.Contains(Entry.Key)) Snapshot->SavedActors.Add(Entry.Value);
     return true;
 }
 
-bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Error)
+bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Error, FName AreaId, bool bOnlyArea)
 {
-    if (!Snapshot || (Snapshot->FormatVersion < 1 || Snapshot->FormatVersion > 2))
+    if (!Snapshot || (Snapshot->FormatVersion < 1 || Snapshot->FormatVersion > 3))
     {
         Error = TEXT("Unsupported or corrupt save format.");
         return false;
     }
     if (Snapshot->CurrentLevel != UGameplayStatics::GetCurrentLevelName(this, true))
     {
-        Error = TEXT("Load the saved map before restoring this slot. Cross-map restoration is not implemented yet.");
+        Error = TEXT("The loaded world does not match the saved map.");
         return false;
     }
 
@@ -265,6 +224,7 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
     {
         if (Actor->GetWorld() != GetWorld()) continue;
         const USaveComponent* Save = Actor->FindComponentByClass<USaveComponent>();
+        if (bOnlyArea && (!Save || Save->StreamingAreaId != AreaId)) continue;
         if (!Save || !Save->PersistentID.IsValid() || Actors.Contains(Save->PersistentID))
         {
             Error = TEXT("World contains invalid or duplicate save IDs.");
@@ -272,9 +232,19 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
         }
         Actors.Add(Save->PersistentID, Actor);
     }
-    // Validate the whole snapshot before spawning or mutating existing participants.
-    TSet<FGuid> SavedIDs;
+    TArray<FActorSaveData> Records;
+    TSet<FGuid> AllIDs;
     for (const FActorSaveData& Data : Snapshot->SavedActors)
+    {
+        if (!Data.ActorID.IsValid() || AllIDs.Contains(Data.ActorID) || Snapshot->DestroyedActors.Contains(Data.ActorID)
+            || !Data.Transform.IsValid() || Data.LinearVelocity.ContainsNaN() || Data.AngularVelocity.ContainsNaN())
+        { Error = TEXT("Save contains invalid actor records."); return false; }
+        AllIDs.Add(Data.ActorID);
+        if (bOnlyArea ? Data.StreamingAreaId == AreaId : IsRecordResident(Data)) Records.Add(Data);
+    }
+    // Validate before spawning or mutating the selected participants.
+    TSet<FGuid> SavedIDs;
+    for (const FActorSaveData& Data : Records)
     {
         AActor* const* Existing = Actors.Find(Data.ActorID);
         if (!Data.ActorID.IsValid() || SavedIDs.Contains(Data.ActorID)
@@ -311,7 +281,7 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
         }
         return false;
     };
-    for (const FActorSaveData& Data : Snapshot->SavedActors)
+    for (const FActorSaveData& Data : Records)
     {
         if (Actors.Contains(Data.ActorID)) continue;
         AActor* Actor = GetWorld()->SpawnActorDeferred<AActor>(Data.RuntimeClass.Get(), Data.Transform,
@@ -322,11 +292,12 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
         if (!Marker || !Marker->bRecreateOnLoad || !Marker->PersistentKey.IsNone())
             return FailSpawn(TEXT("Saved class does not support runtime reconstruction."));
         Marker->PersistentID = Data.ActorID;
+        Marker->StreamingAreaId = Data.StreamingAreaId;
         Actor->FinishSpawning(Data.Transform);
         ActorRegistry->RegisterActor(Actor);
         Actors.Add(Data.ActorID, Actor);
     }
-    for (const FActorSaveData& Data : Snapshot->SavedActors)
+    for (const FActorSaveData& Data : Records)
     {
         TInlineComponentArray<UActorComponent*> Components(Actors[Data.ActorID]);
         TSet<FName> ComponentNames;
@@ -340,9 +311,10 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
         }
     }
 
-    for (const FActorSaveData& Data : Snapshot->SavedActors)
+    for (const FActorSaveData& Data : Records)
     {
         AActor* Actor = Actors[Data.ActorID];
+        Actor->FindComponentByClass<USaveComponent>()->StreamingAreaId = Data.StreamingAreaId;
         if (!HorrorSave::ReadObject(Actor, Data.ByteData)) return FailSpawn(TEXT("Actor restore failed."));
         TInlineComponentArray<UActorComponent*> Components(Actor);
         for (const FComponentSaveData& ComponentData : Data.Components)
@@ -355,7 +327,7 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
             Actor->SetActorTransform(Data.Transform, false, nullptr, ETeleportType::TeleportPhysics);
     }
     // Domain validation follows deserialization and precedes presentation and actor removal.
-    for (const FActorSaveData& Data : Snapshot->SavedActors)
+    for (const FActorSaveData& Data : Records)
     {
         AActor* Actor = Actors[Data.ActorID];
         if (const ISaveStateListener* Listener = Cast<ISaveStateListener>(Actor))
@@ -378,7 +350,7 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
     }
     DestroyedActors = Snapshot->DestroyedActors;
     // Notify after every participant has restored, so dependencies observe the final state.
-    for (const FActorSaveData& Data : Snapshot->SavedActors)
+    for (const FActorSaveData& Data : Records)
     {
         AActor* Actor = Actors[Data.ActorID];
         if (!IsValid(Actor)) continue;
@@ -430,39 +402,4 @@ void USaveSubsystem::OnSlotSaved(const FString& SlotName, int32 UserIndex, bool 
     OnSaveCompleted.Broadcast(Slot, bSuccess, bSuccess
         ? NSLOCTEXT("HorrorSave", "Saved", "Jogo salvo.")
         : NSLOCTEXT("HorrorSave", "WriteFailed", "Nao foi possivel gravar o save."));
-}
-
-void USaveSubsystem::OnSlotLoaded(const FString& SlotName, int32 UserIndex, USaveGame* LoadedGame)
-{
-    PendingSaveGame = Cast<USystemSaveGame>(LoadedGame);
-    TArray<FSoftObjectPath> Paths;
-    if (PendingSaveGame)
-    {
-        for (const FActorSaveData& Data : PendingSaveGame->SavedActors)
-        {
-            if (!Data.RuntimeClass.IsNull()) Paths.AddUnique(Data.RuntimeClass.ToSoftObjectPath());
-            for (const FSoftObjectPath& Path : Data.Dependencies) if (Path.IsValid()) Paths.AddUnique(Path);
-        }
-    }
-    if (Paths.IsEmpty()) { FinishSlotRestore(); return; }
-    RestoreLoadHandle = UAssetManager::GetStreamableManager().RequestAsyncLoad(Paths,
-        FStreamableDelegate::CreateUObject(this, &USaveSubsystem::FinishSlotRestore));
-    if (!RestoreLoadHandle) FinishSlotRestore();
-}
-
-void USaveSubsystem::FinishSlotRestore()
-{
-    const int32 Slot = ActiveSlot;
-    FString Error;
-    bool bSuccess = false;
-    if (!OperationWorld.IsValid() || OperationWorld.Get() != GetWorld()) Error = TEXT("World changed while loading.");
-    else bSuccess = RestoreWorld(PendingSaveGame, Error);
-    if (bSuccess) CurrentSaveGame = PendingSaveGame;
-    else UE_LOG(LogHorrorSave, Error, TEXT("Restore failed for slot %d: %s"), Slot, *Error);
-    PendingSaveGame = nullptr;
-    RestoreLoadHandle.Reset();
-    ActiveSlot = INDEX_NONE;
-    bBusy = false;
-    OnLoadCompleted.Broadcast(Slot, bSuccess, bSuccess
-        ? NSLOCTEXT("HorrorSave", "Loaded", "Jogo carregado.") : FText::FromString(Error));
 }

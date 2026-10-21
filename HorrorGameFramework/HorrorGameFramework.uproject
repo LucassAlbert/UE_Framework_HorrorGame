@@ -14,6 +14,7 @@
 		}
 	],
 	"Plugins": [
+        { "Name": "HorrorWorld", "Enabled": true },
         { "Name": "HorrorAI", "Enabled": true },
         { "Name": "HorrorAudio", "Enabled": true },
         { "Name": "HorrorInventory", "Enabled": true },

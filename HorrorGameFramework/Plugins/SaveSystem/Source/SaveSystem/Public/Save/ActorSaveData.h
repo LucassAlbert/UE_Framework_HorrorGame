@@ -21,6 +21,7 @@ struct SAVESYSTEM_API FActorSaveData
 
     UPROPERTY()
     FGuid ActorID;
+    UPROPERTY() FName StreamingAreaId;
     // Only explicitly opted-in runtime actors may be reconstructed.
     UPROPERTY()
     TSoftClassPtr<AActor> RuntimeClass;
@@ -47,4 +48,8 @@ struct SAVESYSTEM_API FSaveSlotInfo
     int32 SlotIndex = 0;
     UPROPERTY(BlueprintReadOnly, Category = "Save")
     bool bExists = false;
+    UPROPERTY(BlueprintReadOnly, Category = "Save") bool bReadable = false;
+    UPROPERTY(BlueprintReadOnly, Category = "Save") FDateTime SavedAt;
+    UPROPERTY(BlueprintReadOnly, Category = "Save") FString MapName;
+    UPROPERTY(BlueprintReadOnly, Category = "Save") FText Error;
 };

@@ -7,7 +7,7 @@ public class HorrorGameFramework : ModuleRules
 	public HorrorGameFramework(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-	
+
 		PublicDependencyModuleNames.AddRange(new string[]
 		{ 
 			"Core",
@@ -25,6 +25,8 @@ public class HorrorGameFramework : ModuleRules
             "HorrorDialogue",
             "HorrorAudio",
             "HorrorAI",
+            "HorrorWorld",
+            "NavigationSystem",
             "SaveSystem",
             "HorrorUI",
             "UMG",        
@@ -36,7 +38,7 @@ public class HorrorGameFramework : ModuleRules
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
-		
+
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
 
