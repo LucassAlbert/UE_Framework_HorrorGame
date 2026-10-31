@@ -30,6 +30,8 @@
 #include "HorrorEnemyController.h"
 #include "Interfaces/SaveStateListener.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogStreamingValidation, Log, All);
+
 namespace StreamingDemoTest
 {
     const FName Root(TEXT("/Game/Maps/FrameworkStreaming_Demo"));
@@ -61,7 +63,7 @@ namespace StreamingDemoTest
     class FLifecycle : public IAutomationLatentCommand
     {
     public:
-        explicit FLifecycle(FAutomationTestBase* InTest) : Test(InTest), Deadline(FPlatformTime::Seconds() + 90.0) {}
+        explicit FLifecycle(FAutomationTestBase* InTest, bool bColdRead = false) : Test(InTest), Phase(bColdRead ? 15 : 0), Deadline(FPlatformTime::Seconds() + 90.0) {}
         virtual bool Update() override
         {
             const double Now = FPlatformTime::Seconds();
@@ -123,8 +125,16 @@ namespace StreamingDemoTest
                 Next(); return false;
             }
             case 3:
-                if (Saves->IsBusy()) return false;
+                if (Saves->IsBusy() || GI->GetSubsystem<USaveSlotCatalog>()->IsReading()) return false;
                 if (!Assert(Saves->CurrentSaveGame && Saves->CurrentSaveGame->FormatVersion == 3, TEXT("Manual screen writes a version-three snapshot"))) return true;
+                Assert(GI->GetSubsystem<USaveSlotCatalog>()->GetEntries().Num() == 5, TEXT("Catalog supplies all five slots"));
+                if (UFrameworkSaveSlotsScreen* Screen = Cast<UFrameworkSaveSlotsScreen>(UI->GetTopScreen()))
+                {
+                    Screen->SelectSlot(0);
+                    Assert(!Saves->IsBusy(), TEXT("Occupied slot waits for overwrite confirmation"));
+                    Screen->ProcessEvent(Screen->FindFunctionChecked(TEXT("Back")), nullptr);
+                    Assert(UI->GetTopScreen() == Screen, TEXT("Back cancels overwrite and keeps slot selection open"));
+                }
                 UI->PopScreen();
                 Player->SetActorLocation(FVector(-2400,0,100));
                 Next(); return false;
@@ -159,6 +169,9 @@ namespace StreamingDemoTest
                 if (!bReady || !Streaming->IsAreaReady(TEXT("B"))) return false;
                 AStreamingEnemy* Enemy = ById<AStreamingEnemy>(Saves, EnemyId);
                 if (!Assert(Enemy != nullptr, TEXT("Enemy survives proximity preload"))) return true;
+                UE_LOG(LogStreamingValidation, Display, TEXT("Pursuit setup: player=%s enemy=%s home=%s persistent=%d"),
+                    *Player->GetActorLocation().ToString(), *Enemy->GetActorLocation().ToString(),
+                    *Enemy->Residency->HomeAreaId.ToString(), Enemy->GetLevel() == World->PersistentLevel);
                 OriginalSpeed = Enemy->Definition->ChaseSpeed;
                 Enemy->Definition->ChaseSpeed = 200.f;
                 Enemy->SetActorLocation(FVector(-1000,0,100)); Enemy->SetActorRotation(FRotator::ZeroRotator);
@@ -175,6 +188,13 @@ namespace StreamingDemoTest
             {
                 AStreamingEnemy* Enemy = ById<AStreamingEnemy>(Saves, EnemyId);
                 if (!Assert(Enemy != nullptr, TEXT("Active pursuer remains resident"))) return true;
+                if (Now - LastTrace > 1.0)
+                {
+                    LastTrace = Now;
+                    UE_LOG(LogStreamingValidation, Display, TEXT("Pursuit: player=%s enemy=%s state=%d area=%s home=%s dt=%f"),
+                        *Player->GetActorLocation().ToString(), *Enemy->GetActorLocation().ToString(), static_cast<int32>(Enemy->Memory.State),
+                        *Enemy->Save->StreamingAreaId.ToString(), *Enemy->Residency->HomeAreaId.ToString(), World->GetDeltaSeconds());
+                }
                 const double Elapsed = FMath::Min(Now - LastMovement, .1); LastMovement = Now;
                 FVector Position = Player->GetActorLocation(); Position.X = FMath::Min(2400.0, Position.X + Elapsed * 180.0);
                 Player->SetActorLocation(Position);
@@ -224,8 +244,47 @@ namespace StreamingDemoTest
             case 14:
                 if (Map != TEXT("FrameworkThreat_Demo") || !bReady) return false;
                 Assert(!World->IsPaused() && !UI->HasModalScreen(), TEXT("Continue returns to gameplay in the newest saved map"));
-                Test->AddInfo(TEXT("Completed actual streaming, cached/disk restores, pursuit, slot UI, cross-map loading and Continue using isolated saves."));
+                Flow->LoadLevel(Root);
+                Phase = 18; Deadline = Now + 90.0;
+                return false;
+            case 18:
+                if (Map != TEXT("FrameworkStreaming_Demo") || !bReady) return false;
+                Flow->SetGameState(EGameFlowState::GameOver);
+                UI->ClearScreens();
+                if (UUIScreenBase* Screen = UI->OpenScreen(EHorrorScreen::GameOver))
+                    Screen->ProcessEvent(Screen->FindFunctionChecked(TEXT("LoadLatest")), nullptr);
+                else { Test->AddError(TEXT("Configured Game Over screen is unavailable")); return true; }
+                Next(); return false;
+            case 19:
+                if (Map != TEXT("FrameworkThreat_Demo") || !bReady) return false;
+                Assert(!World->IsPaused() && !UI->HasModalScreen(), TEXT("Game Over loads the newest save across maps and releases control"));
+                Test->AddInfo(TEXT("Completed streaming, cache/disk restore, pursuit, five-slot selection, overwrite cancellation, cross-map Continue and Game Over using isolated saves."));
                 return true;
+            case 15:
+                if (Map != TEXT("FrameworkStreaming_Demo") || !bReady) return false;
+                if (!Assert(Saves->LoadFromSlot(0), TEXT("Fresh process begins reading the previous process snapshot"))) return true;
+                Next(); return false;
+            case 16:
+                if (!bReady) return false;
+                if (!Assert(Saves->CurrentSaveGame && Player->GetActorLocation().X > 1200, TEXT("Fresh process restores the saved player in area B"))) return true;
+                Assert(IsUnloaded(World, TEXT("/Game/Maps/Streaming/FrameworkArea_A")), TEXT("Fresh process keeps the cached distant area unloaded"));
+                for (const FActorSaveData& Data : Saves->CurrentSaveGame->SavedActors)
+                    if (Data.StreamingAreaId == TEXT("A") && Data.RuntimeClass.ToString().Contains(TEXT("InventoryDroppedItem"))) DropId = Data.ActorID;
+                if (!Assert(DropId.IsValid(), TEXT("File contains the cached physics drop"))) return true;
+                Player->SetActorLocation(FVector(-2400,0,100));
+                Next(); return false;
+            case 17:
+            {
+                if (!bReady || !Streaming->IsAreaReady(TEXT("A"))) return false;
+                ADocumentPickup* Doc = Cast<ADocumentPickup>(Find(Saves,TEXT("StreamingDemo.Document.A")));
+                AInventoryKeyDoor* Door = Cast<AInventoryKeyDoor>(Find(Saves,TEXT("StreamingDemo.Door.A")));
+                AInventoryDroppedItem* Drop = ById<AInventoryDroppedItem>(Saves,DropId);
+                Assert(Doc && Doc->bCollected && Door && Door->bOpen && !Door->bLocked,
+                    TEXT("Cold restart restores the unloaded document and door states"));
+                Assert(Drop && Drop->Mesh->IsSimulatingPhysics(), TEXT("Cold restart reconstructs the cached drop and its physics"));
+                Assert(!World->IsPaused() && !UI->HasModalScreen(), TEXT("Cold restart returns control to gameplay"));
+                return true;
+            }
             }
             return false;
         }
@@ -234,6 +293,7 @@ namespace StreamingDemoTest
         int32 Phase = 0;
         double Deadline;
         double LastMovement = 0;
+        double LastTrace = 0;
         float OriginalSpeed = 0;
         FGuid EnemyId;
         FGuid DropId;
@@ -243,6 +303,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHorrorStreamingDemoLifecycleTest,"HorrorFramew
     EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
 bool FHorrorStreamingDemoLifecycleTest::RunTest(const FString& Parameters)
 {
+    if (!FParse::Param(FCommandLine::Get(),TEXT("StreamingDemoAutomation")))
+    { AddInfo(TEXT("Integration protocol: run with StreamingDemoAutomation and a fresh isolated HorrorStage7 UserDir.")); return true; }
     FString UserDir;
     FParse::Value(FCommandLine::Get(),TEXT("UserDir="),UserDir);
     if (!FParse::Param(FCommandLine::Get(),TEXT("StreamingDemoAutomation")) || !UserDir.Contains(TEXT("HorrorStage7")))
@@ -252,6 +314,19 @@ bool FHorrorStreamingDemoLifecycleTest::RunTest(const FString& Parameters)
             if (UGameplayStatics::DoesSaveGameExist(USaveSubsystem::GetSlotName(Index),0))
             { AddError(TEXT("Use a fresh isolated user directory; existing saves will not be overwritten."));return false; }
     AddCommand(new StreamingDemoTest::FLifecycle(this));
+    return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FHorrorStreamingColdRestoreTest,"HorrorFramework.Streaming.ColdRestore",
+    EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+bool FHorrorStreamingColdRestoreTest::RunTest(const FString& Parameters)
+{
+    if (!FParse::Param(FCommandLine::Get(),TEXT("StreamingDemoColdRead")))
+    { AddInfo(TEXT("Cold-restore protocol: run in a fresh process using the isolated UserDir of DemoLifecycle.")); return true; }
+    FString UserDir;
+    FParse::Value(FCommandLine::Get(),TEXT("UserDir="),UserDir);
+    if (!UserDir.Contains(TEXT("HorrorStage7")) || !UGameplayStatics::DoesSaveGameExist(USaveSubsystem::GetSlotName(0),0))
+    { AddError(TEXT("Cold restore requires a previous isolated HorrorStage7 snapshot in slot zero.")); return false; }
+    AddCommand(new StreamingDemoTest::FLifecycle(this,true));
     return true;
 }
 #endif

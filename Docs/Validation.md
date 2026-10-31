@@ -236,6 +236,31 @@ O usuário confirmou o novo projeto em `C:/Users/luuki/Documents/GitHub/UE_Frame
 
 Os builds, cook, testes automatizados e testes de gameplay descritos nesta etapa foram executados antes da mudança de pasta. Não foi executado um novo build nem uma nova sessão PIE nesta cópia. Nesta retomada foram atualizados somente o roteiro e os registros da documentação. As ferramentas MCP do Unreal não estão disponíveis na sessão de 20/10; isso não impede esta finalização documental, mas uma nova rodada no Editor precisará da conexão. A mudança de pasta não alterou os contratos nem o escopo da etapa 6.
 
-## Etapa 7 — streaming e slots (em andamento)
+## Etapa 7 — streaming e slots — entregue em 27/10/2026
 
-Em 20/10/2026, Unreal Header Tool e compilação C++ de HorrorGameFrameworkEditor / Development / Win64 com Unreal 5.8.3 e `-NoLink`: Succeeded. Não houve vinculação de DLLs, execução dos novos testes, criação de mapas ou validação de gameplay/cook nesta etapa. O Editor continua aberto; o fechamento normal com preservação das alterações foi solicitado ao usuário. Detalhes em StreamingSaveImplementation.md.
+Implementação e configuração em [StreamingSaveImplementation.md](StreamingSaveImplementation.md). Plugin HorrorWorld, cache/restauração de áreas no SaveSystem, continuidade do perseguidor, seleção dos cinco slots, confirmação de sobrescrita e Continuar/Game Over com o save manual mais recente de qualquer mapa. Demo separada FrameworkStreaming_Demo com duas áreas e corredor persistente. Saves de mundos independentes abrem o mapa correspondente antes da restauração; a travessia contínua aplica-se às áreas do mesmo mundo persistente.
+
+| Verificação | Resultado final |
+| --- | --- |
+| Build Editor Development/Win64, Unreal 5.8.3 | Build completo passou em 24/10 após a correção de componentes persistentes; não apenas NoLink. Nenhum C++ foi alterado depois desse build. |
+| Regressão Editor em 27/10 | 29 entradas com sucesso, zero falhas/avisos: 25 testes efetivos e quatro protocolos informativos de reinício não acionados. Inclui PersistentComponentIdentity. |
+| Pacote Windows Development final | BuildCookRun passou em 27/10, incluindo cook, stage/pak/archive. Cook: zero erros e zero avisos. |
+| Lifecycle no executável final | Passou com avisos transitórios de navegação e código zero. Exercitou descarregamento/retorno, documento/porta, drop com física e GUID, recriação do inimigo, terminal de save, cinco metadados, confirmação/cancelamento de sobrescrita, rewind com área descarregada, perseguição efetiva através do corredor, save/load entre mundos, Continuar global e Game Over global com liberação de pausa/UI. |
+| ColdRestore em processo novo do pacote final | Passou sem falhas/avisos de teste e código zero. Leu slot 0 produzido por Lifecycle, iniciou com jogador em B e A descarregada e confirmou porta/documento/drop ao voltar a A. |
+| PIE | Passou no roteiro de descarregar A, visitar B e voltar, preservando a porta destrancada. A navegação foi construída no Editor antes de duplicar o mundo PIE; o corredor foi conferido em gameplay sem rebuild completo runtime. Não certifica conclusão imediata da geração dinâmica de todos os tiles após o retorno. |
+
+A validação revelou dois defeitos corrigidos: a classe derivada de Recast não correspondia ao agente configurado após reabrir o mapa, e componentes transitórios de input eram serializados como se fossem participantes persistentes. O mapa agora usa RecastNavMesh nativo com navegação do corredor construída/salva no Editor completo. A captura de componentes exige propriedades SaveGame ou listener explícito. A leitura aceita somente registros legados comprovadamente vazios quando o componente está ausente; estado persistente ausente continua sendo erro identificável. O novo teste verifica exclusão dos transitórios, aceitação do vazio legado e rejeição do componente persistente ausente sem alteração do participante.
+
+Artefatos finais em `C:/Users/luuki/AppData/Local/Temp/`:
+
+- `HorrorStage7Regression_20261027/index.json`: regressão; log com o mesmo nome-base e extensão .log.
+- `HorrorStage7Delivery_20261027/Windows/HorrorGameFramework.exe`: pacote final Development.
+- `HorrorStage7DeliveryLifecycle_20261027/index.json` e `HorrorStage7DeliveryLifecycle_20261027.log`: integração do pacote final.
+- `HorrorStage7DeliveryColdRestore_20261027/index.json` e `HorrorStage7DeliveryColdRestore_20261027.log`: restauração no processo novo do mesmo pacote.
+- `HorrorStage7PIE.json` e `HorrorStage7PIEValidated_20261027.log`: roteiro PIE e preparação de navegação.
+
+Log do cook final: `C:/Users/luuki/AppData/Roaming/Unreal Engine/AutomationTool/Logs/C+Program+Files+Epic+Games+UE_5.8/Cook-2026.10.27-19.51.55.txt`.
+
+As execuções de integração são opt-in: Lifecycle exige `-StreamingDemoAutomation` e UserDir isolado apropriado ao protocolo; ColdRestore exige `-StreamingDemoColdRead` e a mesma UserDir com o arquivo anterior. Consultar as guardas em StreamingDemoLifecycleTests.cpp antes de reproduzir. O diretório final usado foi `HorrorStage7DeliveryLifecycleUser_20261027` na pasta temporária. Nenhum slot de progresso do usuário foi sobrescrito. A instância de Editor do usuário permaneceu aberta na rodada final de 27/10; os processos auxiliares encerraram somente a si próprios.
+
+Avisos e limites: Lifecycle passou com avisos transitórios de CrowdManager/Recast durante trocas de mapa. A engine não encontrou o template HTML do relatório, mas exportou JSON/logs; isso não foi ocultado como log totalmente limpo. Testes via UnrealEditor -game tiveram erros de inicialização de toolsets Python antes da automação e avisos HLOD da demo antiga, distintos do pacote runtime. O cook final foi limpo. Não foram certificados Shipping, controle físico nas novas telas, revisão gráfica completa, desempenho alvo, reinício escondido, migração com arquivos reais v1/v2 ou todos os cenários de interrupção/falha de I/O. As validações automatizadas de UI chamam handlers e não substituem interação física.

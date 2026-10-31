@@ -73,6 +73,7 @@ public:
     void RecordDestroyedActor(const FGuid& ActorID);
 
 private:
+    friend class FHorrorSaveComponentIdentityTest;
     friend class FHorrorSaveAreaCacheTest;
     friend class FHorrorSaveRoundTripTest;
     friend class FHorrorRuntimeActorSaveTest;

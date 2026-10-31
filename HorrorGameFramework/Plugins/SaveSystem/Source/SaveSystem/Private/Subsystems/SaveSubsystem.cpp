@@ -32,6 +32,26 @@ namespace HorrorSave
         return !Archive.IsError();
     }
 
+    bool HasPersistentProperties(const UClass* Class)
+    {
+        for (TFieldIterator<FProperty> Property(Class); Property; ++Property)
+            if (Property->HasAnyPropertyFlags(CPF_SaveGame)) return true;
+        return false;
+    }
+
+    bool IsEmptyLegacyComponent(const FComponentSaveData& Data)
+    {
+        // Old snapshots also recorded components with no persistent payload. Their generated
+        // names may differ after travel. Only an exact empty serialization is dispensable.
+        static const TArray<uint8> EmptyPayload = []()
+        {
+            TArray<uint8> Bytes;
+            WriteObject(UActorComponent::StaticClass()->GetDefaultObject(), Bytes);
+            return Bytes;
+        }();
+        return !EmptyPayload.IsEmpty() && Data.ByteData == EmptyPayload;
+    }
+
     bool ReadObject(UObject* Object, const TArray<uint8>& Bytes)
     {
         // Legacy snapshots may omit defaults. Reset only persistent properties before applying their tags.
@@ -192,6 +212,7 @@ bool USaveSubsystem::CaptureWorld(USystemSaveGame* Snapshot, FString& Error, FNa
                 if (!Listener->ValidateSaveState(Error)) return false;
                 Listener->GatherSaveDependencies(Data.Dependencies);
             }
+            if (!HorrorSave::HasPersistentProperties(Component->GetClass()) && !Cast<ISaveStateListener>(Component)) continue;
             FComponentSaveData ComponentData;
             ComponentData.ComponentName = Component->GetFName();
             if (!HorrorSave::WriteObject(Component, ComponentData.ByteData)) { Error = TEXT("Component serialization failed."); return false; }
@@ -303,11 +324,14 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
         TSet<FName> ComponentNames;
         for (const FComponentSaveData& ComponentData : Data.Components)
         {
-            if (ComponentNames.Contains(ComponentData.ComponentName)
-                || !Components.ContainsByPredicate([&ComponentData](const UActorComponent* Component)
-                    { return Component->GetFName() == ComponentData.ComponentName; }))
-                return FailSpawn(TEXT("Saved component is missing or duplicated. Migration is required."));
+            if (ComponentNames.Contains(ComponentData.ComponentName))
+                return FailSpawn(*FString::Printf(TEXT("Duplicate saved component %s on %s."),
+                    *ComponentData.ComponentName.ToString(), *GetNameSafe(Actors[Data.ActorID])));
             ComponentNames.Add(ComponentData.ComponentName);
+            if (!Components.ContainsByPredicate([&ComponentData](const UActorComponent* Component)
+                { return Component->GetFName() == ComponentData.ComponentName; }) && !HorrorSave::IsEmptyLegacyComponent(ComponentData))
+                return FailSpawn(*FString::Printf(TEXT("Saved component %s is missing on %s. Migration is required."),
+                    *ComponentData.ComponentName.ToString(), *GetNameSafe(Actors[Data.ActorID])));
         }
     }
 
@@ -319,9 +343,14 @@ bool USaveSubsystem::RestoreWorld(const USystemSaveGame* Snapshot, FString& Erro
         TInlineComponentArray<UActorComponent*> Components(Actor);
         for (const FComponentSaveData& ComponentData : Data.Components)
         {
-            UActorComponent* Component = *Components.FindByPredicate([&ComponentData](const UActorComponent* Candidate)
+            UActorComponent* const* Component = Components.FindByPredicate([&ComponentData](const UActorComponent* Candidate)
                 { return Candidate->GetFName() == ComponentData.ComponentName; });
-            if (!HorrorSave::ReadObject(Component, ComponentData.ByteData)) return FailSpawn(TEXT("Component restore failed."));
+            if (!Component)
+            {
+                if (!HorrorSave::IsEmptyLegacyComponent(ComponentData)) return FailSpawn(TEXT("A persistent component disappeared during restore."));
+                continue;
+            }
+            if (!HorrorSave::ReadObject(*Component, ComponentData.ByteData)) return FailSpawn(TEXT("Component restore failed."));
         }
         if (Actor->FindComponentByClass<USaveComponent>()->bSaveTransform)
             Actor->SetActorTransform(Data.Transform, false, nullptr, ETeleportType::TeleportPhysics);

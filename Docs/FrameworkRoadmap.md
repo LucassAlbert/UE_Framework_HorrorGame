@@ -43,7 +43,7 @@
 
 `USaveComponent` torna o ator participante do save; a interface é opcional e serve para os callbacks. Propriedades persistentes de atores e componentes devem ter `SaveGame`. Para atores criados em runtime, configure `PersistentKey` ou um GUID persistente antes de `BeginPlay`; não use nomes de spawn como identidade. O personagem padrão usa a chave `Player`.
 
-A etapa 2 acrescenta reconstrução opt-in de atores runtime e remoção de drops criados depois do snapshot, com classes/dependências carregadas assincronamente e persistência de velocidades físicas. Atores colocados continuam exigindo presença/identidade estável. A versão 2 lê snapshots da versão 1. Load entre mapas, streaming e migrações de gameplay ainda precisam ser implementados. GUIDs ou chaves estáveis de atores colocados devem ser persistidos antes de empacotar.
+A etapa 2 acrescenta reconstrução opt-in de atores runtime e remoção de drops criados depois do snapshot, com classes/dependências carregadas assincronamente e persistência de velocidades físicas. Atores colocados continuam exigindo presença/identidade estável. A versão 2 lê snapshots da versão 1. A etapa 7 acrescenta load entre mapas e streaming; migrações específicas de gameplay continuam dependendo do projeto. GUIDs ou chaves estáveis de atores colocados devem ser persistidos antes de empacotar.
 
 ### HorrorUI
 
@@ -70,3 +70,5 @@ A etapa de áudio e volumes foi implementada, descrita em [AudioImplementation.m
 A primeira etapa não equivale à conclusão desse cenário. Build, testes automatizados, PIE e cook devem ser registrados separadamente, com os resultados realmente executados.
 
 A etapa 6 foi implementada, descrita em [ThreatImplementation.md](ThreatImplementation.md): patrulha, visão/audição, investigação, perseguição, busca e esconderijos; captura imediata com Game Over e último save do mapa atual. Andar emite ruído e agachar é silencioso. O inimigo pode capturar em um esconderijo cuja entrada presenciou. Builds completos, testes e pacote Windows passaram na pasta anterior. O usuário confirmou o retorno ao esconderijo pelo último save e a permanência do Game Over ao testar Esc. O mapa separado é FrameworkThreat_Demo; resultados e limites de validação estão em Validation.md. Animações e carregamento entre mapas ficam para etapas posteriores.
+
+A etapa 7 foi implementada: streaming real em uma demonstração separada, preservação de áreas descarregadas, perseguição entre áreas, cinco slots funcionais e Continuar/Game Over globais. A arquitetura e os limites estão em [StreamingSaveImplementation.md](StreamingSaveImplementation.md), com resultados em Validation.md. A continuidade entre áreas usa o mesmo mundo persistente; abrir saves de mundos antigos independentes ainda exige abertura do mapa correspondente.

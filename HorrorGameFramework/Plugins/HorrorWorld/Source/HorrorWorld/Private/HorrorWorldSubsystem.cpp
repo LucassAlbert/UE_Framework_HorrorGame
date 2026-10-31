@@ -77,7 +77,11 @@ bool UHorrorWorldSubsystem::IsSaveAreaResident(FName AreaId) const
     return Area && (Area->State == EHorrorAreaState::Ready || ((bPreparingRestore || bApplyingFile) && Area->State == EHorrorAreaState::Restoring));
 }
 bool UHorrorWorldSubsystem::IsSaveWorldReady() const
-{ return bInitialReady && !bPreparingRestore && !bApplyingFile && OperatingAreaId.IsNone(); }
+{
+    if (!bInitialReady || bPreparingRestore || bApplyingFile || !OperatingAreaId.IsNone()) return false;
+    for (const auto& Entry : Areas) if (Entry.Value.State == EHorrorAreaState::Failed) return false;
+    return true;
+}
 bool UHorrorWorldSubsystem::CaptureWorldMetadata(USystemSaveGame& Snapshot, FString& Error) const
 {
     if (!IsSaveWorldReady()) { Error = TEXT("Wait until the area's state is ready before saving."); return false; }
@@ -156,8 +160,22 @@ void UHorrorWorldSubsystem::PumpOperations()
     {
         const FHorrorAreaRuntime* Active = Areas.Find(OperatingAreaId);
         if (Active && Active->State == EHorrorAreaState::Restoring && !bPreparingRestore && !GetSaves()->IsBusy()) RestoreShownArea();
+        else if (Active && Active->State == EHorrorAreaState::Unloading && !Active->Streaming->GetLoadedLevel()
+            && !Active->Streaming->HasLoadRequestPending()) HandleUnloaded();
         return;
     }
+    if (bResettingAreas)
+        for (auto& Entry : Areas)
+            if (Entry.Value.State == EHorrorAreaState::Failed)
+            {
+                if (!Entry.Value.Streaming->GetLoadedLevel() && !Entry.Value.Streaming->HasLoadRequestPending())
+                {
+                    Entry.Value.Streaming->SetShouldBeVisible(false);
+                    Entry.Value.Streaming->SetShouldBeLoaded(false);
+                    SetAreaState(Entry.Key, EHorrorAreaState::Unloaded);
+                }
+                else { BeginUnload(Entry.Key); return; }
+            }
     for (FName Id : DesiredAreas)
         if (FHorrorAreaRuntime* Area = Areas.Find(Id); Area && Area->State == EHorrorAreaState::Unloaded) { BeginLoad(Id); return; }
     for (const auto& Entry : Areas)
@@ -231,7 +249,13 @@ void UHorrorWorldSubsystem::FinishArea(FName AreaId, bool bSuccess, FText Messag
     if (!bSuccess)
     {
         UE_LOG(LogHorrorWorld, Error, TEXT("Area %s failed: %s"), *AreaId.ToString(), *Message.ToString());
-        if (bPreparingRestore) { bPreparingRestore = false; RestoreCompletion.ExecuteIfBound(false, Message); RestoreCompletion.Unbind(); }
+        if (bPreparingRestore)
+        {
+            FSaveWorldPrepared Completion = MoveTemp(RestoreCompletion);
+            bResettingAreas = bPreparingRestore = false;
+            bApplyingFile = true;
+            Completion.ExecuteIfBound(false, Message);
+        }
     }
     CheckReady();
 }
@@ -260,7 +284,7 @@ void UHorrorWorldSubsystem::CheckReady()
         FSaveWorldPrepared Completion = MoveTemp(RestoreCompletion);
         Completion.ExecuteIfBound(true, FText::GetEmpty());
     }
-    else if (!bInitialReady && !bApplyingFile && !DesiredAreas.IsEmpty())
+    else if (!bInitialReady && !bApplyingFile)
     {
         bInitialReady = true;
         GetSaves()->NotifyWorldReady();

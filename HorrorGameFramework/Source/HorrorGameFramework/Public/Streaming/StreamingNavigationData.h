@@ -11,5 +11,5 @@ public:
     AStreamingNavigationData();
     // Native navigation actors are not placeable through actor factories.
     UFUNCTION(BlueprintCallable, Category="World|Editor", meta=(DevelopmentOnly, WorldContext="WorldContext"))
-    static AStreamingNavigationData* CreateForEditor(UObject* WorldContext);
+    static ARecastNavMesh* CreateForEditor(UObject* WorldContext);
 };
