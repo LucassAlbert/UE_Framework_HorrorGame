@@ -264,3 +264,42 @@ Log do cook final: `C:/Users/luuki/AppData/Roaming/Unreal Engine/AutomationTool/
 As execuções de integração são opt-in: Lifecycle exige `-StreamingDemoAutomation` e UserDir isolado apropriado ao protocolo; ColdRestore exige `-StreamingDemoColdRead` e a mesma UserDir com o arquivo anterior. Consultar as guardas em StreamingDemoLifecycleTests.cpp antes de reproduzir. O diretório final usado foi `HorrorStage7DeliveryLifecycleUser_20261027` na pasta temporária. Nenhum slot de progresso do usuário foi sobrescrito. A instância de Editor do usuário permaneceu aberta na rodada final de 27/10; os processos auxiliares encerraram somente a si próprios.
 
 Avisos e limites: Lifecycle passou com avisos transitórios de CrowdManager/Recast durante trocas de mapa. A engine não encontrou o template HTML do relatório, mas exportou JSON/logs; isso não foi ocultado como log totalmente limpo. Testes via UnrealEditor -game tiveram erros de inicialização de toolsets Python antes da automação e avisos HLOD da demo antiga, distintos do pacote runtime. O cook final foi limpo. Não foram certificados Shipping, controle físico nas novas telas, revisão gráfica completa, desempenho alvo, reinício escondido, migração com arquivos reais v1/v2 ou todos os cenários de interrupção/falha de I/O. As validações automatizadas de UI chamam handlers e não substituem interação física.
+
+
+## Etapa 8 — demonstração integrada — 31/10/2026
+
+Regras e configuração em [IntegratedDemoImplementation.md](IntegratedDemoImplementation.md). O usuário aprovou o percurso completo, inimigo ativo desde o início e conclusão com Reiniciar/Voltar ao menu. Os mapas anteriores foram preservados; Novo jogo referencia a nova demonstração por uma cópia própria do menu. A cópia do personagem reúne as capacidades existentes e acrescenta somente o fato de inspeção pronta.
+
+| Verificação | Resultado |
+| --- | --- |
+| Autoria pelo Unreal | Data Assets, Blueprints, mapa persistente e duas áreas criados/salvos pelas APIs do Editor. A navegação do corredor foi preparada e salva no Editor completo; projeções nos dois lados da porta foram verificadas. |
+| Build completo Editor Development/Win64 | Passou com novas classes refletidas e teste de percurso compilados. A primeira tentativa identificou conversão ambígua entre TObjectPtr e ponteiro de pawn; corrigida antes do build válido. |
+| Regressão HorrorFramework no Editor | 29 entradas passaram, zero falhas/avisos: 25 testes efetivos e quatro protocolos informativos de reinício. O novo teste de percurso é ClientContext e foi executado separadamente com opt-in. |
+| Playthrough via Editor -game / NullRHI | Passou com um aviso transitório de CrowdManager/Recast durante troca de mapa, sem falhas e código zero. Roteiro final HorrorIntegratedPlaythrough_07. |
+| Playthrough com renderização | Passou com o mesmo aviso transitório e código zero. Capturas de inspeção e conclusão foram inspecionadas visualmente. Roteiro HorrorIntegratedPlaythrough_Render01. |
+| Runtime e pacote Windows Development | BuildCookRun passou; pacote final atualizado com as luzes e placas. Cook final: zero erros e zero avisos; pak, stage e archive passaram. |
+| Playthrough no pacote final | Passou com aviso transitório de CrowdManager/Recast, sem falhas e código zero. HorrorIntegratedPlaythrough_PackageFinal. |
+| PIE com IA ativa | Roteiro final passou: personagem integrado e documento presentes; inimigo permaneceu Patrol e percorreu 120,4 cm na rota observada. Navegação preparada no Editor antes de PIE. Captura da cena conferida após correção de iluminação. |
+
+O percurso automatizado usa os adaptadores reais: conversa sem pausa, conclusão do histórico/fato, coleta e leitura automática, cinco pickups nos cinco slots, inspeção pronta, combinação consumindo ingredientes, inserção pelos dois seletores, destrancamento sem abertura automática, interação para abrir, terminal/slot manual, mutação e restauração conjunta de inventário/puzzle/histórico/objetivos, streaming para a ala leste, caminho completo de navegação pelo corredor aberto, rejeição de requisito pendente, uso/consumo da chave na saída, conclusão pausada, prevenção de conclusão duplicada/retorno por Back, reinício limpo, retorno ao menu e Novo jogo apontando ao mapa integrado.
+
+Para isolar transações, o teste confirma que o inimigo começa ativo e depois desabilita a captura somente na instância runtime dessa execução. O arquivo de teste registra esse estado controlado. Isso não modifica o inimigo autoral nem valida uma partida inteira sob perseguição. A patrulha ativa foi observada no roteiro PIE independente. Não houve teste físico novo de teclado/controle.
+
+As primeiras tentativas do roteiro revelaram problemas na preparação automatizada: câmera mirava antes de o personagem se apoiar no chão, o posicionamento do encaixe direito ficava do lado externo da parede, e a entrada em uma área era tentada durante a restauração do streaming. O roteiro passou a posicionar pela altura da cápsula, usar a posição real da câmera, permanecer dentro do corredor e aguardar a área antes de atravessar. As validações de alcance/trace/obstrução do produto foram preservadas. A primeira chamada de consulta de navegação durante o início de PIE também registrou um handled ensure; o roteiro final aguarda a inicialização, não faz essa consulta antecipada e terminou sem esse ensure. Os plugins não foram modificados por uma causa não demonstrada.
+
+A inspeção visual detectou luzes herdadas em 4000 candelas com a exposição global desativada. Somente as seis fontes das três cenas novas foram ajustadas para 350 lúmens, e as placas receberam contraste. O pacote foi atualizado e o percurso nele repetido após esse ajuste. Meshes básicos, personagem/NPC sem arte final e telas de protótipo permanecem deliberadamente visíveis.
+
+Artefatos em `C:/Users/luuki/AppData/Local/Temp/`:
+
+- `HorrorIntegratedEditorBuild.log`: último build completo do Editor.
+- `HorrorIntegratedRegression_20261031/index.json` e log com o mesmo nome-base: regressão.
+- `HorrorIntegratedPlaythrough_07/index.json`: percurso em modo jogo sem renderização.
+- `HorrorIntegratedPlaythrough_Render01/index.json`: percurso com renderização; log com o mesmo nome-base.
+- `HorrorIntegratedTest_Render01/Saved/Screenshots/Integrated_Inspection.png` e `Integrated_Completed.png`: capturas da UI inspecionadas.
+- `HorrorIntegratedPIE.json` e `HorrorIntegratedPIEValidated.log`: PIE final com patrulha ativa.
+- `HorrorIntegratedGameplay_Final.png`: captura final do cenário.
+- `HorrorIntegratedPackageFinal_20261031.log`: empacotamento final e resumo do cook.
+- `HorrorIntegratedPackage_20261031/Windows/HorrorGameFramework.exe`: executável de entrada do pacote final.
+- `HorrorIntegratedPlaythrough_PackageFinal/index.json` e log com o mesmo nome-base: percurso no pacote final.
+
+Os protocolos usam UserDir exclusivas e recusam sobrescrever slots existentes. Nenhum save do jogador foi gravado. Não foram certificados duração/dificuldade de uma partida manual, percurso completo com inimigo ativo, captura/esconderijo neste novo layout, controle físico na tela de conclusão, reinício de processo com um save desta demo, Shipping ou falhas de I/O/interrupção exaustivas. A etapa 7 registra a validação anterior de restauração de áreas em processo novo. Avisos de CrowdManager durante trocas e falta do template HTML do relatório continuam separados do resultado dos testes; JSON e logs foram gerados. As execuções via Editor -game também registraram os erros anteriores de toolsets Python da engine antes da automação; eles não aparecem no runtime empacotado.
