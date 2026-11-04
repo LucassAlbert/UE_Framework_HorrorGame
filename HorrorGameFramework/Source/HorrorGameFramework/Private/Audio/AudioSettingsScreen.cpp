@@ -54,7 +54,7 @@ TSharedRef<SWidget> UAudioVolumeRow::RebuildWidget()
     Minus->OnClicked.AddDynamic(this, &UAudioVolumeRow::Decrease);
     Layout->AddChildToHorizontalBox(Minus);
     USizeBox* SliderBox = WidgetTree->ConstructWidget<USizeBox>();
-    SliderBox->SetWidthOverride(280.f);
+    SliderBox->SetWidthOverride(OwnerScreen.IsValid() && OwnerScreen->IsEmbeddedInScreen() ? 230.f : 280.f);
     Slider = WidgetTree->ConstructWidget<USlider>();
     Slider->SetStepSize(.05f);
     Slider->OnValueChanged.AddDynamic(this, &UAudioVolumeRow::Change);
@@ -109,7 +109,19 @@ TSharedRef<SWidget> UAudioSettingsScreen::RebuildWidget()
     UTextBlock* Help = WidgetTree->ConstructWidget<UTextBlock>();
     Help->SetText(NSLOCTEXT("AudioMenu", "Help", "Prévia imediata. Aplicar grava os volumes. Voltar cancela alterações não aplicadas."));
     Help->SetAutoWrapText(true);
-    Layout->AddChildToVerticalBox(Help);
+    if (IsEmbeddedInScreen())
+    {
+        Help->SetText(NSLOCTEXT("AudioMenu", "EmbeddedHelp", "Prévia imediata. Aplicar salva os volumes.\nTrocar de aba ou Voltar descarta alterações não aplicadas."));
+        Help->SetWrapTextAt(900);
+        USizeBox* HelpBox = WidgetTree->ConstructWidget<USizeBox>();
+        HelpBox->SetHeightOverride(100);
+        HelpBox->SetContent(Help);
+        Layout->AddChildToVerticalBox(HelpBox);
+    }
+    else
+    {
+        Layout->AddChildToVerticalBox(Help);
+    }
     for (uint8 Index = 0; Index <= static_cast<uint8>(EHorrorAudioChannel::Music); ++Index)
     {
         UAudioVolumeRow* Row = WidgetTree->ConstructWidget<UAudioVolumeRow>();
@@ -126,9 +138,12 @@ TSharedRef<SWidget> UAudioSettingsScreen::RebuildWidget()
     UButton* Stop = AudioMenu::AddButton(WidgetTree, NSLOCTEXT("AudioMenu", "Stop", "Parar teste"));
     Stop->OnClicked.AddDynamic(this, &UAudioSettingsScreen::StopPreview);
     Layout->AddChildToVerticalBox(Stop);
-    UButton* Close = AudioMenu::AddButton(WidgetTree, NSLOCTEXT("AudioMenu", "Back", "Voltar"));
-    Close->OnClicked.AddDynamic(this, &UAudioSettingsScreen::Back);
-    Layout->AddChildToVerticalBox(Close);
+    if (!IsEmbeddedInScreen())
+    {
+        UButton* Close = AudioMenu::AddButton(WidgetTree, NSLOCTEXT("AudioMenu", "Back", "Voltar"));
+        Close->OnClicked.AddDynamic(this, &UAudioSettingsScreen::Back);
+        Layout->AddChildToVerticalBox(Close);
+    }
     Feedback = WidgetTree->ConstructWidget<UTextBlock>();
     Feedback->SetAutoWrapText(true);
     Layout->AddChildToVerticalBox(Feedback);

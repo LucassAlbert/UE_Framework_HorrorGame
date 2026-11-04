@@ -26,7 +26,10 @@ public:
     void ReceiveScreenExit();
 
     UFUNCTION(BlueprintCallable, Category = "UI")
-    void CloseScreen();
+    virtual void CloseScreen();
+
+    void SetPresentationHost(UUIScreenBase* InHost) { PresentationHost = InHost; }
+    bool IsEmbeddedInScreen() const { return PresentationHost.IsValid(); }
 
     void SetOwningManager(UUIManagerSubsystem* InManager) { Manager = InManager; }
 
@@ -42,4 +45,5 @@ protected:
 
 private:
     TWeakPtr<SWidget> LastNavigationFocus;
+    TWeakObjectPtr<UUIScreenBase> PresentationHost;
 };

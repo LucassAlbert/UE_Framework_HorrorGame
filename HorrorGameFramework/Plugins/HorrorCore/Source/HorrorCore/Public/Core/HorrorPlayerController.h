@@ -27,6 +27,7 @@ public:
 
 	void SetControlState(EPlayerControlState NewState);
     void ResetTransientControlState();
+    UFUNCTION() void ApplyControlPreferences();
 
 protected:
 	virtual void BeginPlay() override;

@@ -228,6 +228,7 @@ TSubclassOf<UUIScreenBase> UUIManagerSubsystem::GetScreenClass(EHorrorScreen Scr
         case EHorrorScreen::SaveSlots: return UIConfigAsset->SaveSlots;
         case EHorrorScreen::GameOver: return UIConfigAsset->GameOver;
         case EHorrorScreen::AudioSettings: return UIConfigAsset->AudioSettings;
+        case EHorrorScreen::ControlSettings: return UIConfigAsset->ControlSettings;
     }
     return nullptr;
 }

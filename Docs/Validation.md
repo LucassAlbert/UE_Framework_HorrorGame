@@ -303,3 +303,50 @@ Artefatos em `C:/Users/luuki/AppData/Local/Temp/`:
 - `HorrorIntegratedPlaythrough_PackageFinal/index.json` e log com o mesmo nome-base: percurso no pacote final.
 
 Os protocolos usam UserDir exclusivas e recusam sobrescrever slots existentes. Nenhum save do jogador foi gravado. Não foram certificados duração/dificuldade de uma partida manual, percurso completo com inimigo ativo, captura/esconderijo neste novo layout, controle físico na tela de conclusão, reinício de processo com um save desta demo, Shipping ou falhas de I/O/interrupção exaustivas. A etapa 7 registra a validação anterior de restauração de áreas em processo novo. Avisos de CrowdManager durante trocas e falta do template HTML do relatório continuam separados do resultado dos testes; JSON e logs foram gerados. As execuções via Editor -game também registraram os erros anteriores de toolsets Python da engine antes da automação; eles não aparecem no runtime empacotado.
+
+
+## Etapa 9 — controles e câmera (01/11/2026)
+
+Implementação e roteiro: [ControlsImplementation.md](ControlsImplementation.md). Aprovações: remapeamento de teclado/mouse e botões de controle com troca automática de conflitos; navegação dos menus fixa; sensibilidade/inversão X/Y por dispositivo; FOV 70–110°; prévia imediata, Aplicar, cancelar e padrões. Usuário disponível somente para teclado/mouse nesta rodada. O usuário confirmou em 01/11/2026 que todo o roteiro manual solicitado funcionou: tela legível, prévia e cancelamento de FOV/sensibilidade, troca Interagir E → C com Agachar C → E, Aplicar e execução dos comandos no gameplay. O teste físico de controle permanece pendente.
+
+| Verificação executada | Resultado |
+| --- | --- |
+| Editor Development/Win64 completo | Passou. Log temporário HorrorControlsEditorBuild.log. |
+| Regressão HorrorFramework no Editor | 30 entradas sem falhas/avisos: 26 testes efetivos e quatro protocolos informativos de reinício. Relatório HorrorControlsRegression_01. |
+| Modelo portátil de preferências | HorrorControlsModel_01: passou sem falhas/avisos. Validação de valores e atribuições, conflito/troca e padrões. |
+| Runtime Editor -game | HorrorControlsRuntime_03: passou, zero falhas, um aviso transitório de CrowdManager/Recast e saída zero. Inclui modificadores reais em três intervalos de frame, preferências separadas por dispositivo, captura B/Esc por Slate, timeout pausado, troca de comandos, cópias privadas, cancelamento, Aplicar e reinício do mundo. |
+| Novo processo Editor -game | HorrorControlsCold_03: passou sem falhas/avisos; restauração de teclas, botão de gamepad, FOV e preferências separadas por dispositivo. |
+| Renderização e inspeção da tela | HorrorControlsRuntime_Render02 passou; captura ControlSettings.png inspecionada. Corrigidos espaçamento, quebra de linhas e alturas para impedir sobreposição; lista possui rolagem. |
+| Pacote Windows Development final | HorrorControlsDelivery_20261101: BuildCookRun, cook, pak, stage e archive passaram. Cook sem erros/avisos. |
+| Runtime no pacote final | HorrorControlsRuntime_Delivery01: passou, zero falhas, um aviso transitório de CrowdManager/Recast e saída zero. Executou o protocolo fortalecido com mouse/controle e respectivos modificadores. |
+| Novo processo do pacote final | HorrorControlsCold_Delivery01: passou sem falhas/avisos e saída zero; arquivo recuperado após encerramento completo do processo anterior. |
+
+Relatórios JSON e logs acima ficam em `C:/Users/luuki/AppData/Local/Temp/`. O arquivo de teste foi isolado em HorrorControlsTest_Delivery01; a janela manual usa HorrorControlsManual_20261101. Preferências e saves do usuário não foram usados pelos testes.
+
+O aviso de Recast ocorre durante a recriação do mundo e já aparecia nas etapas anteriores; não foi tratado como uma falha de controles. As execuções Editor -game também apresentam mensagens anteriores de inicialização dos toolsets Python da engine, separadas dos resultados da automação. Não houve teste físico de controle nem certificação Shipping, outras plataformas, desconexão de dispositivos ou falhas reais de disco.
+
+Durante a preparação, o teste tentou instanciar UObject abstrato; o proprietário de edição do fixture passou a usar uma classe concreta. A primeira captura renderizada revelou sobreposição de texto e o teste apontou que intervalos de ticker medidos pelo delta da engine prolongavam a captura sob engasgos de renderização. O layout foi corrigido e o timeout passou a comparar um prazo monotônico real, inclusive em pausa; a execução renderizada seguinte passou. Uma tentativa inicial do UAT encontrou disputa na rotação do log Trace.uba com outro processo de ferramentas; a repetição sequencial e o pacote final passaram. Esses resultados iniciais não são os artefatos finais válidos.
+
+
+## Integração do WBP_MainSettings (03/11/2026)
+
+O DA_UIConfig usa o WBP_MainSettings original como entrada de Configurações. Vídeo usa o painel do asset. Áudio e Controles abrem as telas do framework, que retornam ao template. A inicialização do Blueprint foi conferida pelo grafo e só chama as rotinas de Vídeo e FPS.
+
+Build Editor Development/Win64 e cook Windows passaram. A execução HorrorControlsRuntime_SettingsTemplate02 confirmou as três categorias, o retorno à pausa pelo botão do template, a prévia e o cancelamento de Áudio e o fluxo de Controles. Houve um aviso de CrowdManager/Recast durante a recriação do mapa e zero falhas no teste. O primeiro roteiro injetou Esc no mesmo frame de abertura de Áudio, antes do foco Slate. A execução válida aciona o handler de Voltar nessa tela e mantém a verificação de B em Controles. A nova integração não passou por teste físico de controle nesta rodada.
+
+
+## Abas persistentes de Configurações (04/11/2026)
+
+O usuário confirmou o escopo visual somente em Vídeo, Áudio e Controles. As duas páginas do framework ocupam agora o painel direito de WBP_MainSettings, com a navegação lateral visível e o host como único modal durante as trocas. Trocar de aba cancela prévias não aplicadas, encerra captura de tecla e amostras sonoras e libera a edição exclusiva. Voltar e Esc/B fecham Configurações, respeitando o tratamento especial durante captura. A fonte, os botões, o fundo e os estilos de slider e rolagem são lidos dos widgets do template ao criar cada página.
+
+| Validação executada | Resultado |
+| --- | --- |
+| Editor Development/Win64 completo | Passou com o encaminhamento de fechamento de páginas incorporadas em UIScreenBase e o host nativo. Log PersistentSettingsFinalBuild.log. |
+| Regressão no Editor | PersistentSettingsRegression registrou 30 entradas sem falhas/avisos, incluindo os protocolos informativos existentes. |
+| Runtime com renderização | HorrorControlsRuntime_PersistentTabs02 passou, com zero falhas e um aviso transitório de CrowdManager/Recast durante recriação do mapa. Verificou navegação persistente, separação geométrica das colunas, estilo dos botões, páginas fora da camada de viewport, edição/captura e cancelamento ao trocar de aba e retorno ao gameplay. |
+| Revisão visual | SettingsVideo.png, SettingsAudio.png e SettingsControls.png foram inspecionadas a 1280×720. O primeiro ciclo revelou sobreposição do texto de ajuda com a primeira linha de Áudio e largura insuficiente para um rótulo de Controles. As capturas válidas seguintes incluem as correções de altura e largura. |
+| Pacote Windows Development | HorrorSettingsTabs_20261104 passou por build, cook, stage, pak e archive. Cook registrou zero erros e zero avisos. |
+| Runtime do pacote final | HorrorControlsRuntime_TabsPackage01 passou com zero falhas e o aviso transitório de CrowdManager/Recast. Incluiu a restauração de foco ao voltar a Vídeo. |
+| Reinício do processo empacotado | HorrorControlsCold_TabsPackage01 passou, verificando recuperação das preferências aplicadas. |
+
+As evidências estão em pastas com esses nomes no diretório temporário do usuário. As capturas revisadas ficam em HorrorControlsTest_PersistentTabs02/Saved/Screenshots. Os protocolos usaram UserDir isoladas e não usaram os saves e preferências de trabalho do usuário. A rodada valida Windows Development e a geometria capturada. A conferência manual desta mudança e o teste físico de controle continuam pendentes.

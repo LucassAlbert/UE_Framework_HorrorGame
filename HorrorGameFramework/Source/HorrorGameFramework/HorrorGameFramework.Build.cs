@@ -26,6 +26,7 @@ public class HorrorGameFramework : ModuleRules
             "HorrorAudio",
             "HorrorAI",
             "HorrorWorld",
+            "HorrorControls",
             "NavigationSystem",
             "SaveSystem",
             "HorrorUI",

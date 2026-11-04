@@ -75,3 +75,7 @@ A etapa 7 foi implementada: streaming real em uma demonstração separada, prese
 
 
 A etapa 8 reúne o percurso em `/Game/Maps/FrameworkIntegrated_Demo`, descrito em [IntegratedDemoImplementation.md](IntegratedDemoImplementation.md): diálogo, leitura, inspeção, combinação, puzzle, streaming, perseguidor ativo desde o início, esconderijos, terminais manuais e saída com tela de conclusão. As demos anteriores permanecem disponíveis. O ritmo de 10–15 minutos e a dificuldade ainda precisam de uma partida manual; a validação automatizada acelera ações e isola a IA em parte do roteiro. Resultados e limites estão em Validation.md.
+
+A etapa 9 implementa controles e câmera, descritos em [ControlsImplementation.md](ControlsImplementation.md): remapeamento com troca de conflitos, sensibilidade/inversão X/Y por dispositivo, FOV, prévia transacional e persistência separada. O WBP_MainSettings é a entrada de Configurações, com Vídeo no template e botões para Áudio e Controles e câmera. O usuário confirmou o roteiro manual de teclado/mouse, incluindo câmera, troca de comandos, Aplicar e cancelamento. A validação física de controle continua pendente nesta rodada; resultados em Validation.md.
+
+Em 04/11/2026, as abas de Configurações passaram a compartilhar o mesmo template, com navegação lateral persistente e páginas de Áudio/Controles incorporadas ao painel direito. O escopo visual aprovado foi somente Vídeo, Áudio e Controles. As páginas herdam o estilo do template e cancelam prévias não aplicadas ao trocar de aba. Resultados atualizados em Validation.md.

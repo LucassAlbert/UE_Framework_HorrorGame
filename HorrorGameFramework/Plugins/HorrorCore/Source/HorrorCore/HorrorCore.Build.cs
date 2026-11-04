@@ -30,6 +30,7 @@ public class HorrorCore : ModuleRules
 				"Engine",
 				"InputCore",
 				"EnhancedInput",
+                "HorrorControls",
                 "HorrorInteraction",
                 "SaveSystem",
                 "HorrorUI"

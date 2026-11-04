@@ -41,6 +41,8 @@ class HORRORUI_API UUIDataAsset : public UDataAsset
     TSubclassOf<class UUIScreenBase> GameOver;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
     TSubclassOf<class UUIScreenBase> AudioSettings;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<class UUIScreenBase> ControlSettings;
 
     // Explicit prototype mode: missing screens use a labelled native placeholder.
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")

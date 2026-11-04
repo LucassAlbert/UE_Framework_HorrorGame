@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "InputMappingContext.h"
 #include "EnhancedInputSubsystems.h"
+#include "HorrorControlSettingsSubsystem.h"
 #include "EnhancedInputComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -37,7 +38,8 @@ void AHorrorCharacter::PossessedBy(AController* NewController)
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
 		{
-			Subsystem->AddMappingContext(InputMapping, 0);
+			if (auto* Controls = PlayerController->GetLocalPlayer()->GetSubsystem<UHorrorControlSettingsSubsystem>()) Controls->AddGameplayContext(InputMapping, 0);
+            else Subsystem->AddMappingContext(InputMapping, 0);
             MappingController = PlayerController;
 		}
 	}
@@ -69,7 +71,7 @@ void AHorrorCharacter::Tick(float DeltaTime)
 
 void AHorrorCharacter::CamCrouchMovement(float DeltaTime)
 {
-	// Localização atual
+	// LocalizaÃ§Ã£o atual
 	FVector CurrentPos = Camera->GetRelativeLocation();
 
 	if (InCrounch)
@@ -89,10 +91,10 @@ void AHorrorCharacter::CamCrouchMovement(float DeltaTime)
 		//UE_LOG(LogTemp, Warning, TEXT("Height = %f - Z = %f"), TargetZ, CurrentPos.Z);
 	}
 
-	// Interpolação suave apenas no eixo Z
+	// InterpolaÃ§Ã£o suave apenas no eixo Z
 	float NewZ = FMath::FInterpTo(CurrentPos.Z, TargetZ, DeltaTime, CrouchSpeed);
 
-	// Aplica a nova posição
+	// Aplica a nova posiÃ§Ã£o
 	Camera->SetRelativeLocation(FVector(CurrentPos.X, CurrentPos.Y, NewZ));
 
 	float Current = Capsule->GetUnscaledCapsuleHalfHeight();
@@ -165,7 +167,7 @@ bool AHorrorCharacter::CanStandUp()
 {
 	FVector Location = GetActorLocation();
 
-	//Adicionar a diferença quando estiver abaixado
+	//Adicionar a diferenÃ§a quando estiver abaixado
 	if(InCrounch) Location.Z += 50;
 
 	float StandHalfHeight = 88.f;
@@ -195,7 +197,8 @@ void AHorrorCharacter::RemoveInputMapping()
         {
             if (UEnhancedInputLocalPlayerSubsystem* Input = Player->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
             {
-                if (InputMapping) Input->RemoveMappingContext(InputMapping);
+                if (auto* Controls = Player->GetSubsystem<UHorrorControlSettingsSubsystem>()) Controls->RemoveGameplayContext(InputMapping);
+                else if (InputMapping) Input->RemoveMappingContext(InputMapping);
             }
         }
     }

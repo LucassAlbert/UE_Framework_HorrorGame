@@ -12,7 +12,7 @@ class APlayerController;
 UENUM(BlueprintType)
 enum class EHorrorScreen : uint8
 {
-    MainMenu, Settings, Pause, Inventory, Inspection, Documents, Objectives, SaveSlots, GameOver, AudioSettings
+    MainMenu, Settings, Pause, Inventory, Inspection, Documents, Objectives, SaveSlots, GameOver, AudioSettings, ControlSettings
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUIReady, bool, bSuccess);

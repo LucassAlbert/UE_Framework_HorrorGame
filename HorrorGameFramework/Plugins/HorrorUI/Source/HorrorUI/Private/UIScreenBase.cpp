@@ -54,6 +54,11 @@ TSharedRef<SWidget> UUIScreenBase::GetNavigationFocusTarget()
 
 void UUIScreenBase::CloseScreen()
 {
+    if (UUIScreenBase* Host = PresentationHost.Get())
+    {
+        Host->CloseScreen();
+        return;
+    }
     if (Manager && Manager->GetTopScreen() == this) Manager->PopScreen();
 }
 

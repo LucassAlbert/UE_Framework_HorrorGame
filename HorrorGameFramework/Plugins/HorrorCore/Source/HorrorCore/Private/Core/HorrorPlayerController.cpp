@@ -1,4 +1,8 @@
 #include "Core/HorrorPlayerController.h"
+#include "HorrorControlSettingsSubsystem.h"
+#include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Engine/LocalPlayer.h"
 #include "EnhancedInputComponent.h"
 #include "Interfaces/HorrorInputReceiver.h"
 #include "Subsystems/GameFlowSubsystem.h"
@@ -23,6 +27,12 @@ void AHorrorPlayerController::BeginPlay()
 {
     Super::BeginPlay();
     if (!IsLocalController()) return;
+    if (ULocalPlayer* LocalUser = GetLocalPlayer())
+        if (auto* Controls = LocalUser->GetSubsystem<UHorrorControlSettingsSubsystem>())
+        {
+            Controls->OnPreferencesChanged.AddUniqueDynamic(this, &AHorrorPlayerController::ApplyControlPreferences);
+            ApplyControlPreferences();
+        }
     if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>())
     {
         UI->OnScreenStackChanged.AddUniqueDynamic(this, &AHorrorPlayerController::HandleScreenStackChanged);
@@ -38,6 +48,8 @@ void AHorrorPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
         UI->OnScreenStackChanged.RemoveDynamic(this, &AHorrorPlayerController::HandleScreenStackChanged);
     if (UInteractionSubsystem* Interaction = GetGameInstance()->GetSubsystem<UInteractionSubsystem>())
         Interaction->SetFocusedActor(nullptr);
+    if (ULocalPlayer* LocalUser = GetLocalPlayer())
+        if (auto* Controls = LocalUser->GetSubsystem<UHorrorControlSettingsSubsystem>()) Controls->OnPreferencesChanged.RemoveDynamic(this, &AHorrorPlayerController::ApplyControlPreferences);
     Super::EndPlay(EndPlayReason);
 }
 
@@ -61,6 +73,7 @@ void AHorrorPlayerController::ResetTransientControlState()
         if (UUIManagerSubsystem* UI = GI->GetSubsystem<UUIManagerSubsystem>()) HandleScreenStackChanged(UI->HasModalScreen());
     }
     if (GetPawn()) SetViewTarget(GetPawn());
+    ApplyControlPreferences();
 }
 
 void AHorrorPlayerController::OnPossess(APawn* InPawn)
@@ -248,4 +261,15 @@ void AHorrorPlayerController::CallInventory(const FInputActionValue& InputValue)
     APawn* ControlledPawn = GetPawn();
     if (IsValid(ControlledPawn) && ControlledPawn->Implements<UHorrorInputReceiver>())
         IHorrorInputReceiver::Execute_OnInventory(ControlledPawn);
+}
+
+void AHorrorPlayerController::ApplyControlPreferences()
+{
+    ULocalPlayer* LocalUser = GetLocalPlayer();
+    const auto* Controls = LocalUser ? LocalUser->GetSubsystem<UHorrorControlSettingsSubsystem>() : nullptr;
+    UCameraComponent* Camera = GetPawn() ? GetPawn()->FindComponentByClass<UCameraComponent>() : nullptr;
+    if (!Controls || !Controls->IsReady() || !Camera) return;
+    Camera->SetFieldOfView(Controls->GetPreferences().FieldOfView);
+    // Menus can preview FOV while the world is paused, without changing camera ownership.
+    if (PlayerCameraManager) PlayerCameraManager->UpdateCamera(0.f);
 }

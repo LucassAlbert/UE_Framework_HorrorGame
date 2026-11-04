@@ -1,0 +1,22 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "Horror Controls",
+  "Description": "Local player control and camera preferences with transactional editing.",
+  "Category": "Horror Framework",
+  "CanContainContent": false,
+  "Modules": [
+    {
+      "Name": "HorrorControls",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "EnhancedInput",
+      "Enabled": true
+    }
+  ]
+}
