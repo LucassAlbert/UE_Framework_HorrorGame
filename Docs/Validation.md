@@ -350,3 +350,10 @@ O usuário confirmou o escopo visual somente em Vídeo, Áudio e Controles. As d
 | Reinício do processo empacotado | HorrorControlsCold_TabsPackage01 passou, verificando recuperação das preferências aplicadas. |
 
 As evidências estão em pastas com esses nomes no diretório temporário do usuário. As capturas revisadas ficam em HorrorControlsTest_PersistentTabs02/Saved/Screenshots. Os protocolos usaram UserDir isoladas e não usaram os saves e preferências de trabalho do usuário. A rodada valida Windows Development e a geometria capturada. A conferência manual desta mudança e o teste físico de controle continuam pendentes.
+
+
+## Estilo do menu de pausa (04/11/2026)
+
+WBP_PauseMenu recebeu o padrão visual de WBP_MainSettings, com fundo, blur, fonte, botões com borda fina e coluna de navegação. A autoria usa os widgets de ação existentes e os mesmos eventos do Blueprint. Os novos widgets de apresentação foram registrados pelo UMGToolSet da engine para incluir seus GUIDs de autoria. A compilação final do Blueprint terminou sem erros/avisos em PauseMenuStyleFinal.log.
+
+PauseMenuStyled.png foi capturada em uma execução com renderização e inspecionada a 1280×720. O roteiro acionou os callbacks reais de Settings e Resume, confirmou o retorno de Configurações à pausa e verificou que Resume libera a pausa e a tela modal. PauseMenuVerification.json registra esses resultados. A seguir, HorrorFramework.Controls.Runtime passou em HorrorPauseStyleRuntime04, com zero falhas e o aviso transitório conhecido de CrowdManager/Recast durante a recriação do mundo. As preferências foram isoladas em HorrorControlsTest_PauseStyle04. Cook Windows passou com zero erros/avisos em PauseMenuStyleCook.log. Esses artefatos ficam no diretório temporário do usuário. Esta rodada não acionou Back to desktop nem usou controle físico.
