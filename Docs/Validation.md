@@ -380,3 +380,29 @@ EventRunning.png e EventCompleted.png em HorrorEventsTest_FinalRender01/Saved/Sc
 O primeiro roteiro também encontrou um intervalo de prontidão quando a condição de item ainda aguardava a conclusão assíncrona. O componente passou a concluir imediatamente quando os recursos já estão carregados e a retê-los por referências fortes. A rodada seguinte e os artefatos finais passaram. O primeiro build de testes usou QuietNaN de TNumericLimits, indisponível nessa versão, e foi corrigido para std::numeric_limits antes do build válido. As mensagens anteriores dos toolsets Python da engine em Editor -game continuam separadas dos resultados da automação.
 
 O protocolo desativa a captura dos inimigos na instância runtime de teste para isolar as transações. O inimigo autoral continua ativo na demonstração. Sons e geometria são provisórios. Os testes usaram UserDir HorrorEventsTest isoladas e slots de teste 0–2. Os relatórios e logs ficam no diretório temporário do usuário. Transferência do plugin para outro projeto, Shipping, uma partida manual sob perseguição e migração de conteúdo para snapshots anteriores à inclusão desses atores permanecem pendentes.
+
+
+## Entrada e saída animadas dos esconderijos (05/11/2026)
+
+Regras, arquitetura e configuração em [HidingTransitionsImplementation.md](HidingTransitionsImplementation.md). O usuário aprovou movimento suave, porta/tampa configurada por Data Asset, proteção somente após a entrada, perda de proteção no início da saída e normalização dos saves em andamento para Hidden/Outside, respectivamente.
+
+| Validação executada | Resultado |
+| --- | --- |
+| Editor Development/Win64 completo | Passou em HidingBuildFinal.log. |
+| Regressão HorrorFramework no Editor | HorrorHidingRegression_Final: 32 entradas, zero falhas e zero avisos. Inclui HidingTransitions, HidingWorldSave e PerceptionAndMemory. |
+| Runtime Editor -game com renderização | HorrorHidingRuntime_Render02: passou sem falhas/avisos. Porta, estados, proteção, snapshots em disco, restauração e interrupção por captura. |
+| Reinício Editor -game | HorrorHidingCold_Render02: passou sem falhas/avisos, carregando os snapshots de entrada e saída em processo novo. |
+| Pacote Windows Development | HorrorHidingPackage_20261105: build, cook, stage, pak e archive passaram. Cook com zero erros/avisos em HorrorHidingPackage.log. |
+| Runtime do pacote final com renderização | HorrorHidingRuntime_PackageFinal01: passou sem falhas/avisos. |
+| Reinício do pacote final | HorrorHidingCold_PackageFinal01: passou sem falhas/avisos. |
+| Assets e referências | Data Asset criado pela API do Unreal, Blueprint BP_ThreatHidingSpot compilado e salvo, áreas A/B salvas. Cook dos consumidores sem erros/avisos. |
+
+O teste HidingTransitions cobre ocupação sem proteção na entrada, rejeição de reentrada, bloqueio de olhar pelo controller, pose intermediária, escala original do jogador, pausa, porta, ocultação ao concluir, recusa de saída bloqueada, perda imediata de proteção, retorno de posição/câmera, restauração estável de snapshots durante entrada/saída e limpeza ao perder o pawn ou destruir o esconderijo. PerceptionAndMemory verifica que a entrada ainda visível é lembrada e que completar a ocultação atrás de uma obstrução não apaga uma entrada já presenciada.
+
+Os protocolos de runtime verificam o armário autoral, movimentação e porta ao longo do tempo, gravação em slots 0/1, carregamento dentro da sessão e em novo processo, estado final fechado e ocupação liberada, além do callback real de captura interrompendo Entering e abrindo Game Over. Eles desativam os inimigos na instância de teste para isolar saves, e disparam a captura explicitamente; não substituem uma partida manual sob perseguição. A configuração do mapa permanece com o inimigo ativo.
+
+HidingEntering.png, HidingInside.png e HidingCaptureInterrupt.png do pacote final foram inspecionadas a 1280×720. A revisão inicial revelou uma visão totalmente escura dentro do cubo fechado; a geometria provisória ganhou uma abertura à altura dos olhos. O primeiro roteiro de runtime também posicionava a cápsula acima do chão e a gravidade alterava a altura esperada na saída. O fixture foi corrigido para partir da altura atual do jogador; o teste seguinte passou. Erros de compilação iniciais ficaram restritos ao fixture (TObjectPtr, acesso de teste e cast de controller) e foram corrigidos antes das rodadas válidas.
+
+Logs, relatórios, pacote e imagens ficam no diretório temporário do usuário, com os nomes da tabela. Os saves e preferências usaram UserDir HorrorHidingTest isoladas. A suíte geral do Editor não executa os protocolos opt-in ClientContext; eles foram executados separadamente nas rodadas de runtime e reinício acima. Mensagens anteriores de inicialização dos toolsets Python da engine em Editor -game permanecem separadas dos resultados da automação.
+
+Limites: arte do armário é provisória, sem mãos/animação esquelética ou som novo de dobradiça; conferência manual em PIE e com controle físico, Shipping e teste real de transferência do plugin continuam pendentes. Há tratamento de campos ausentes em snapshots antigos, mas esta rodada não usou um arquivo histórico anterior à mudança. Não foi criada uma política nova de migração de mapas/conteúdo.

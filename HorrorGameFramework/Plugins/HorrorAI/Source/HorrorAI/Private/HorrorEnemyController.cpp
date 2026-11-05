@@ -65,10 +65,18 @@ void AHorrorEnemyController::SetTarget(AActor* Actor)
 {
     UHorrorAITargetComponent* NewTarget = IsValid(Actor) ? Actor->FindComponentByClass<UHorrorAITargetComponent>() : nullptr;
     if (TrackedTarget.Get() == NewTarget) return;
-    if (TrackedTarget.IsValid()) TrackedTarget->OnConcealmentChanged.RemoveDynamic(this, &AHorrorEnemyController::HandleConcealment);
+    if (TrackedTarget.IsValid())
+    {
+        TrackedTarget->OnConcealmentChanged.RemoveDynamic(this, &AHorrorEnemyController::HandleConcealment);
+        TrackedTarget->OnConcealmentStarted.RemoveDynamic(this, &AHorrorEnemyController::HandleConcealmentStarted);
+    }
     TrackedTarget = NewTarget;
     WitnessedAnchor.Reset();
-    if (NewTarget) NewTarget->OnConcealmentChanged.AddUniqueDynamic(this, &AHorrorEnemyController::HandleConcealment);
+    if (NewTarget)
+    {
+        NewTarget->OnConcealmentChanged.AddUniqueDynamic(this, &AHorrorEnemyController::HandleConcealment);
+        NewTarget->OnConcealmentStarted.AddUniqueDynamic(this, &AHorrorEnemyController::HandleConcealmentStarted);
+    }
 }
 bool AHorrorEnemyController::HasSightAt(AActor* Actor, FVector Location) const
 {
@@ -96,25 +104,37 @@ void AHorrorEnemyController::HandlePerception(AActor* Actor, FAIStimulus Stimulu
         ChangeEnemyState(EHorrorEnemyState::Investigate);
     }
 }
+void AHorrorEnemyController::HandleConcealmentStarted(AActor* Actor, FVector EntryLocation)
+{
+    HandleConcealment(Actor, true, EntryLocation);
+}
 void AHorrorEnemyController::HandleConcealment(AActor* Actor, bool bConcealed, FVector EntryLocation)
 {
     AHorrorEnemyCharacter* User = Enemy.Get();
     if (!bReady || !User || !TrackedTarget.IsValid() || TrackedTarget->GetOwner() != Actor) return;
+    // Completing an entry must not erase a previously witnessed attempt.
+    if (bConcealed && WitnessedAnchor.IsValid() && WitnessedAnchor.Get() == TrackedTarget->GetConcealmentAnchor()) return;
     if (bConcealed && User->Memory.State == EHorrorEnemyState::Chase && HasSightAt(Actor, EntryLocation))
     {
-        WitnessedAnchor = TrackedTarget->GetConcealmentAnchor();
-        WitnessedEntry = EntryLocation;
-        User->Memory.WitnessedConcealmentKey = TrackedTarget->GetConcealmentKey();
-        User->Memory.WitnessedEntry = EntryLocation;
-        User->Memory.LastKnownLocation = EntryLocation;
-        User->Memory.RemainingTime = User->Definition->MoveTimeoutSeconds;
-        RequestDestination(EntryLocation);
+        RememberConcealment(EntryLocation);
     }
     else
     {
         WitnessedAnchor.Reset();
         if (User->Memory.State == EHorrorEnemyState::Chase) ChangeEnemyState(EHorrorEnemyState::Investigate);
     }
+}
+void AHorrorEnemyController::RememberConcealment(FVector EntryLocation)
+{
+    AHorrorEnemyCharacter* User = Enemy.Get();
+    if (!User || !TrackedTarget.IsValid()) return;
+    WitnessedAnchor = TrackedTarget->GetConcealmentAnchor();
+    WitnessedEntry = EntryLocation;
+    User->Memory.WitnessedConcealmentKey = TrackedTarget->GetConcealmentKey();
+    User->Memory.WitnessedEntry = EntryLocation;
+    User->Memory.LastKnownLocation = EntryLocation;
+    User->Memory.RemainingTime = User->Definition->MoveTimeoutSeconds;
+    RequestDestination(EntryLocation);
 }
 void AHorrorEnemyController::ChangeEnemyState(EHorrorEnemyState State)
 {
@@ -196,13 +216,15 @@ void AHorrorEnemyController::UpdateBrain()
         User->Memory.LastKnownLocation = Actor->GetActorLocation();
         User->Memory.bHasLastKnownLocation = true;
         if (User->Memory.State != EHorrorEnemyState::Chase) ChangeEnemyState(EHorrorEnemyState::Chase);
+        if (Target->IsEnteringConcealment() && !WitnessedAnchor.IsValid())
+            RememberConcealment(Target->GetConcealmentEntry());
         if (!CaptureIfClose(Target, Actor->GetActorLocation(), nullptr)) RequestDestination(User->Memory.LastKnownLocation);
         return;
     }
     if (User->Memory.State == EHorrorEnemyState::Chase)
     {
         UHorrorAITargetComponent* Target = TrackedTarget.Get();
-        if (Target && Target->IsAvailable() && Target->IsConcealed() && WitnessedAnchor.IsValid())
+        if (Target && Target->IsAvailable() && (Target->IsConcealed() || Target->IsEnteringConcealment()) && WitnessedAnchor.IsValid())
         {
             if (CaptureIfClose(Target, WitnessedEntry, WitnessedAnchor.Get())) return;
             if (User->Memory.RemainingTime <= 0.f) { WitnessedAnchor.Reset(); BeginSearch(); }

@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HorrorEnemyController.h"
+#include "HidingParticipantComponent.h"
 #include "TimerManager.h"
 
 AFrameworkEnemy::AFrameworkEnemy() { Save = CreateDefaultSubobject<USaveComponent>(TEXT("Save")); }
@@ -23,6 +24,7 @@ void AFrameworkEnemy::HandleCaptured(AActor* Enemy, APawn* Player)
     if (!IsValid(Player) || Flow->CurrentState != EGameFlowState::Playing) return;
     if (const USaveSubsystem* Saves = GetGameInstance()->GetSubsystem<USaveSubsystem>(); Saves && Saves->IsBusy()) return;
     Flow->SetGameState(EGameFlowState::GameOver);
+    if (UHidingParticipantComponent* Hiding = Player->FindComponentByClass<UHidingParticipantComponent>()) Hiding->ResetHiding();
     Player->ConsumeMovementInputVector();
     if (ACharacter* Character = Cast<ACharacter>(Player)) Character->GetCharacterMovement()->StopMovementImmediately();
     if (UDialogueGameplayComponent* Dialogue = Player->FindComponentByClass<UDialogueGameplayComponent>()) Dialogue->Cancel();

@@ -76,8 +76,14 @@ bool FHorrorEnemyBehaviorTest::RunTest(const FString& Parameters)
     const FName HideKey(TEXT("StableHideSpot"));
     // This fixture deliberately has no NavMesh; movement is exercised on the demonstration map.
     AddExpectedMessage(TEXT("Cannot navigate"), ELogVerbosity::Warning, EAutomationExpectedMessageFlags::Contains, 1);
+    Target->BeginConcealment(HideAnchor, Player->GetActorLocation(), HideKey);
+    TestTrue(TEXT("Entering remains visible but records witnessed concealment"), !Target->IsConcealed() && Target->IsEnteringConcealment()
+        && AI->WitnessedAnchor.Get() == HideAnchor && Enemy->Memory.WitnessedConcealmentKey == HideKey);
+    Box->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     Target->SetConcealed(true, HideAnchor, Player->GetActorLocation(), HideKey);
     TestTrue(TEXT("Witnessed entry is remembered"), AI->WitnessedAnchor.Get() == HideAnchor && Enemy->Memory.WitnessedConcealmentKey == HideKey);
+    TestFalse(TEXT("Completion ends the pending flag"), Target->IsEnteringConcealment());
+    Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Target->SetConcealed(false, nullptr, Player->GetActorLocation());
     TestFalse(TEXT("Leaving clears the witnessed anchor"), AI->WitnessedAnchor.IsValid());
     AI->ChangeEnemyState(EHorrorEnemyState::Chase);

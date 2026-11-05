@@ -28,6 +28,7 @@ private:
     void UpdateBrain();
     void ChangeEnemyState(EHorrorEnemyState State);
     void SetTarget(AActor* Actor);
+    void RememberConcealment(FVector EntryLocation);
     void RequestDestination(FVector Goal);
     void BeginSearch();
     void ChooseSearchGoal();
@@ -36,6 +37,7 @@ private:
     bool CaptureIfClose(UHorrorAITargetComponent* Target, FVector CaptureLocation, AActor* Anchor);
     void Shutdown();
     UFUNCTION() void HandlePerception(AActor* Actor, FAIStimulus Stimulus);
+    UFUNCTION() void HandleConcealmentStarted(AActor* Actor, FVector EntryLocation);
     UFUNCTION() void HandleConcealment(AActor* Actor, bool bConcealed, FVector EntryLocation);
     UPROPERTY(VisibleAnywhere) TObjectPtr<UAIPerceptionComponent> Senses;
     UPROPERTY() TObjectPtr<UAISenseConfig_Sight> Sight;

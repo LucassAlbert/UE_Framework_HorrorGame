@@ -5,6 +5,7 @@
 #include "InputActionValue.h"
 #include "Interfaces/HorrorInputReceiver.h"
 #include "InteractionScannerComponent.h"
+#include "HidingParticipantComponent.h"
 
 #include "HorrorPlayerController.generated.h"
 
@@ -79,6 +80,7 @@ protected:
 
 private:
     friend class FHorrorFrameworkLifecycleTest;
+    friend class FHorrorHidingTransitionTest;
     bool IsGameplayFlowActive() const;
 	EPlayerControlState CurrentState = EPlayerControlState::Gameplay;
     EPlayerControlState StateBeforeUI = EPlayerControlState::Gameplay;
@@ -89,6 +91,7 @@ private:
     UFUNCTION()
     void HandleScreenStackChanged(bool bHasModalScreen);
 
+    UFUNCTION() void HandleHidingStateChanged(EHidingState State, class UHideSpotComponent* Spot);
     UFUNCTION()
     void HandleHidingChanged(bool bNowHidden, class UHideSpotComponent* Spot, FVector EntryLocation);
 

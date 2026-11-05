@@ -24,10 +24,23 @@ bool UHorrorAITargetComponent::IsAvailable() const
     const APawn* Pawn = Cast<APawn>(GetOwner());
     return IsActive() && IsValid(Pawn) && Pawn->IsPlayerControlled() && GetWorld() && !GetWorld()->bIsTearingDown;
 }
+void UHorrorAITargetComponent::BeginConcealment(AActor* Anchor, FVector EntryLocation, FName PersistentKey)
+{
+    if (!IsValid(Anchor) || Anchor->GetWorld() != GetWorld() || EntryLocation.ContainsNaN()) return;
+    if (bEnteringConcealment && ConcealmentAnchor.Get() == Anchor) return;
+    bConcealed = false;
+    bEnteringConcealment = true;
+    ConcealmentAnchor = Anchor;
+    ConcealmentEntry = EntryLocation;
+    ConcealmentKey = PersistentKey;
+    OnConcealmentStarted.Broadcast(GetOwner(), EntryLocation);
+}
 void UHorrorAITargetComponent::SetConcealed(bool bHidden, AActor* Anchor, FVector EntryLocation, FName PersistentKey)
 {
     if (bHidden && (!IsValid(Anchor) || Anchor->GetWorld() != GetWorld() || EntryLocation.ContainsNaN())) return;
-    if (bConcealed == bHidden && ConcealmentAnchor.Get() == Anchor) return;
+    if (!bEnteringConcealment && bConcealed == bHidden && ConcealmentAnchor.Get() == Anchor) return;
+    bEnteringConcealment = false;
+    ConcealmentEntry = EntryLocation;
     bConcealed = bHidden;
     ConcealmentAnchor = bHidden ? Anchor : nullptr;
     ConcealmentKey = bHidden ? PersistentKey : NAME_None;

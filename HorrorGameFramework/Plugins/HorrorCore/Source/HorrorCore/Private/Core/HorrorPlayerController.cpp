@@ -82,7 +82,10 @@ void AHorrorPlayerController::OnPossess(APawn* InPawn)
     ResetTransientControlState();
     if (InPawn)
         if (UHidingParticipantComponent* Hiding = InPawn->FindComponentByClass<UHidingParticipantComponent>())
+        {
             Hiding->OnHidingChanged.AddUniqueDynamic(this, &AHorrorPlayerController::HandleHidingChanged);
+            Hiding->OnStateChanged.AddUniqueDynamic(this, &AHorrorPlayerController::HandleHidingStateChanged);
+        }
     if (IsLocalController() && IsGameplayFlowActive())
         if (UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>(); UI && UI->IsReady()) UI->OpenGameplayUI();
 }
@@ -94,6 +97,7 @@ void AHorrorPlayerController::OnUnPossess()
         {
             Hiding->ResetHiding();
             Hiding->OnHidingChanged.RemoveDynamic(this, &AHorrorPlayerController::HandleHidingChanged);
+            Hiding->OnStateChanged.RemoveDynamic(this, &AHorrorPlayerController::HandleHidingStateChanged);
         }
     if (UGameInstance* GI = GetGameInstance())
         if (UUIManagerSubsystem* UI = GI->GetSubsystem<UUIManagerSubsystem>()) UI->ReleasePlayerPresentation(this);
@@ -239,10 +243,15 @@ void AHorrorPlayerController::SetHideSpotCamera(AActor* HideSpotActor)
     if (IsValid(HideSpotActor)) SetViewTargetWithBlend(HideSpotActor, 1.f);
 }
 
+void AHorrorPlayerController::HandleHidingStateChanged(EHidingState State, UHideSpotComponent* Spot)
+{
+    HandleHidingChanged(State != EHidingState::Outside, Spot, FVector::ZeroVector);
+}
 void AHorrorPlayerController::HandleHidingChanged(bool bNowHidden, UHideSpotComponent* Spot, FVector EntryLocation)
 {
     GetWorldTimerManager().ClearTimer(HideTransitionTimer);
-    InAnimation = false;
+    const UHidingParticipantComponent* Hiding = GetPawn() ? GetPawn()->FindComponentByClass<UHidingParticipantComponent>() : nullptr;
+    InAnimation = Hiding && Hiding->IsTransitioning();
     StateBeforeUI = bNowHidden ? EPlayerControlState::Hidden : EPlayerControlState::Gameplay;
     const UUIManagerSubsystem* UI = GetGameInstance()->GetSubsystem<UUIManagerSubsystem>();
     CurrentState = UI && UI->HasModalScreen() ? EPlayerControlState::UI : StateBeforeUI;

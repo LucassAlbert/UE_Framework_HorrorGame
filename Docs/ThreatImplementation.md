@@ -41,3 +41,6 @@ A memória do inimigo usa propriedades SaveGame: estado, índice da rota, últim
 O jogador guarda a identidade do esconderijo e a posição de retorno. Os callbacks reconectam a ocupação após a restauração dos participantes. O esconderijo precisa ter um SaveComponent com identidade estável.
 
 `USaveSubsystem::LoadLatestForCurrentLevel` lê os cinco slots assincronamente e compara SavedAt dos snapshots compatíveis com o mapa aberto. Não escolhe por número do slot nem muda de mapa. Arquivos inválidos são diagnosticados; ausência de save ou falha de restauração mantém a tela de Game Over com mensagem. A seleção reutiliza o pipeline de restauração existente e não grava progresso. Esc/B não fecha Game Over para escapar da captura.
+
+
+A entrada e a saída suaves dos esconderijos foram acrescentadas em 05/11/2026. Estados, perfil de porta/tampa, regras de proteção e saves durante a animação estão em [HidingTransitionsImplementation.md](HidingTransitionsImplementation.md).
