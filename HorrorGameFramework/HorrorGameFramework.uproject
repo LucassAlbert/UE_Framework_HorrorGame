@@ -59,6 +59,10 @@
 		{
 			"Name": "PCGToolset",
 			"Enabled": true
+		},
+		{
+			"Name": "HorrorEvents",
+			"Enabled": true
 		}
 	],
 	"TargetPlatforms": [

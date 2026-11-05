@@ -1,0 +1,16 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "1.0",
+  "FriendlyName": "Horror Events",
+  "Description": "Reusable conditional event sequences and restorable execution state.",
+  "Category": "Horror Framework",
+  "CanContainContent": false,
+  "Modules": [
+    {
+      "Name": "HorrorEvents",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

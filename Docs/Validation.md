@@ -357,3 +357,26 @@ As evidências estão em pastas com esses nomes no diretório temporário do usu
 WBP_PauseMenu recebeu o padrão visual de WBP_MainSettings, com fundo, blur, fonte, botões com borda fina e coluna de navegação. A autoria usa os widgets de ação existentes e os mesmos eventos do Blueprint. Os novos widgets de apresentação foram registrados pelo UMGToolSet da engine para incluir seus GUIDs de autoria. A compilação final do Blueprint terminou sem erros/avisos em PauseMenuStyleFinal.log.
 
 PauseMenuStyled.png foi capturada em uma execução com renderização e inspecionada a 1280×720. O roteiro acionou os callbacks reais de Settings e Resume, confirmou o retorno de Configurações à pausa e verificou que Resume libera a pausa e a tela modal. PauseMenuVerification.json registra esses resultados. A seguir, HorrorFramework.Controls.Runtime passou em HorrorPauseStyleRuntime04, com zero falhas e o aviso transitório conhecido de CrowdManager/Recast durante a recriação do mundo. As preferências foram isoladas em HorrorControlsTest_PauseStyle04. Cook Windows passou com zero erros/avisos em PauseMenuStyleCook.log. Esses artefatos ficam no diretório temporário do usuário. Esta rodada não acionou Back to desktop nem usou controle físico.
+
+
+## Eventos e sustos (05/11/2026)
+
+Regras e configuração em [EventsImplementation.md](EventsImplementation.md). O usuário aprovou entrada no corredor como gatilho, execução única por partida e restauração final de sequências salvas em andamento. O módulo HorrorEvents depende somente da engine. Os adaptadores do projeto conectam os sistemas existentes e os três atores novos participam do save.
+
+| Validação executada | Resultado |
+| --- | --- |
+| Build completo Editor Development/Win64 | Passou em HorrorEventsBuildFinal.log. A reabertura do Editor com Live Coding bloqueou uma tentativa anterior. O usuário concluiu o fechamento e o build seguinte passou. |
+| Regressão HorrorFramework | HorrorEventsRegression registrou 31 entradas sem falhas/avisos, incluindo o novo teste de definição e serialização SaveGame e os protocolos informativos existentes. |
+| Runtime com renderização final | HorrorEventsRuntime_FinalRender01 passou com zero falhas e um aviso transitório de CrowdManager/Recast durante recriação do mundo. |
+| Novo processo Editor -game | HorrorEventsCold_FinalRender01 passou sem falhas/avisos. Recuperou o snapshot concluído, os estados finais dos alvos, o fato e o consumo da execução. |
+| Pacote Windows Development | HorrorEventsPackage_20261104 passou por build, cook, stage, pak e archive. Cook com zero erros/avisos. |
+| Runtime no pacote final | HorrorEventsRuntime_Package01 passou com zero falhas e o aviso transitório de CrowdManager/Recast. |
+| Novo processo do pacote final | HorrorEventsCold_Package01 passou sem falhas/avisos. |
+
+O protocolo cobre gatilho real por overlap, bloqueio de evento desativado/pausa/reentrada, snapshots antes/durante/depois da sequência, restauração final de uma sequência em andamento, restauração de um evento concluído, prevenção de repetição, reinício limpo, fatos e quantidades de inventário habilitando interação, alteração do journal iniciando eventos sem polling, condição por estado de objetivo e ativação/desativação de inimigo. Um alvo removido da configuração durante Running faz a validação de save recusar o estado antes de restaurar efeitos. O teste de definição rejeita ações ausentes, atrasos negativos/não finitos, revisão incompatível e múltiplas conclusões em evento único.
+
+EventRunning.png e EventCompleted.png em HorrorEventsTest_FinalRender01/Saved/Screenshots foram inspecionadas a 1280×720. A revisão inicial revelou uma rotação posicional Python que inclinava a porta como uma prateleira. A versão final usa rotação nomeada no eixo yaw e uma esfera emissiva para tornar o piscar da lâmpada visível no protótipo.
+
+O primeiro roteiro também encontrou um intervalo de prontidão quando a condição de item ainda aguardava a conclusão assíncrona. O componente passou a concluir imediatamente quando os recursos já estão carregados e a retê-los por referências fortes. A rodada seguinte e os artefatos finais passaram. O primeiro build de testes usou QuietNaN de TNumericLimits, indisponível nessa versão, e foi corrigido para std::numeric_limits antes do build válido. As mensagens anteriores dos toolsets Python da engine em Editor -game continuam separadas dos resultados da automação.
+
+O protocolo desativa a captura dos inimigos na instância runtime de teste para isolar as transações. O inimigo autoral continua ativo na demonstração. Sons e geometria são provisórios. Os testes usaram UserDir HorrorEventsTest isoladas e slots de teste 0–2. Os relatórios e logs ficam no diretório temporário do usuário. Transferência do plugin para outro projeto, Shipping, uma partida manual sob perseguição e migração de conteúdo para snapshots anteriores à inclusão desses atores permanecem pendentes.
