@@ -158,7 +158,11 @@ void AHorrorEnemyController::RequestDestination(FVector Goal)
     if (bMoveRequested && FVector::DistSquared(MoveGoal, Goal) < 2500.f && GetMoveStatus() == EPathFollowingStatus::Moving) return;
     MoveGoal = Goal;
     bMoveRequested = true;
-    const EPathFollowingRequestResult::Type Result = MoveToLocation(Goal, User->Definition->ArrivalRadius, false, true, false, false, nullptr, false);
+    // A chase must approach inside the capture radius instead of stopping at patrol tolerance.
+    const float Acceptance = User->Memory.State == EHorrorEnemyState::Chase
+        ? FMath::Min(User->Definition->ArrivalRadius, User->Definition->CaptureDistance * .5f)
+        : User->Definition->ArrivalRadius;
+    const EPathFollowingRequestResult::Type Result = MoveToLocation(Goal, Acceptance, false, true, false, false, nullptr, false);
     if (Result == EPathFollowingRequestResult::Failed && !bReportedNavigationFailure)
     {
         UE_LOG(LogHorrorAI, Warning, TEXT("Cannot navigate %s to %s. Check NavMesh bounds, route and obstacles."), *GetNameSafe(User), *Goal.ToCompactString());

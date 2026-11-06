@@ -406,3 +406,56 @@ HidingEntering.png, HidingInside.png e HidingCaptureInterrupt.png do pacote fina
 Logs, relatórios, pacote e imagens ficam no diretório temporário do usuário, com os nomes da tabela. Os saves e preferências usaram UserDir HorrorHidingTest isoladas. A suíte geral do Editor não executa os protocolos opt-in ClientContext; eles foram executados separadamente nas rodadas de runtime e reinício acima. Mensagens anteriores de inicialização dos toolsets Python da engine em Editor -game permanecem separadas dos resultados da automação.
 
 Limites: arte do armário é provisória, sem mãos/animação esquelética ou som novo de dobradiça; conferência manual em PIE e com controle físico, Shipping e teste real de transferência do plugin continuam pendentes. Há tratamento de campos ausentes em snapshots antigos, mas esta rodada não usou um arquivo histórico anterior à mudança. Não foi criada uma política nova de migração de mapas/conteúdo.
+
+
+## Validação integrada do framework (05/11/2026)
+
+Escopo, reprodução, problema encontrado e correção em [FrameworkValidation.md](FrameworkValidation.md). A rodada iniciou no commit 7ac8c62, sem alterações locais. O novo teste LivePursuit reproduziu duas vezes uma entrada presenciada que não resultava em captura: a IA parava a cerca de 120,26 cm da entrada para um alcance de 120 cm e eventualmente desistia. A tolerância de aproximação de Chase foi limitada em HorrorAI. A rodada seguinte capturou, restaurou a memória pelo último save e capturou novamente.
+
+| Verificação executada | Evidência e resultado |
+| --- | --- |
+| Build completo Editor Development/Win64 | FrameworkAuditFinalBuild.log: passou. |
+| Regressão final | FrameworkValidation_AuditFinalRegression_Regression_Runtime: 33 entradas, zero falhas/avisos. A entrada LivePursuit é informativa sem a flag opt-in; sua execução real está separada abaixo. |
+| Percurso integrado com renderização, Editor -game | HorrorIntegratedPlaythrough_Audit20261105: passou, com avisos de CrowdManager/Recast durante recriação de mundos. |
+| Streaming e restauração entre mapas, Editor -game | FrameworkAuditStreamingRuntime: passou com avisos; FrameworkAuditStreamingCold: passou sem falhas/avisos. Inclui perseguição cruzando áreas, estados descarregados, drop físico reconstruído, seleção de slots, Continue e Game Over entre mapas. |
+| Configurações e reinício, Editor -game | FrameworkValidation_AuditControls01_Controls_Runtime: passou com aviso transitório de Recast; Controls_Cold da mesma execução passou sem falhas/avisos. |
+| Perseguição real, Editor -game após correção | FrameworkValidation_AuditLive03_Live_Runtime: passou sem falhas/avisos. A solicitação de limite de 30 FPS era mascarada pelo timestep global de 60 FPS; não é prova de 30 FPS reais. |
+| Perseguição real em PIE com renderização | FrameworkAuditPIE/index.json e FrameworkAuditPIE03.log: passou, com avisos de conversão da taxa de amostragem do dispositivo de áudio (engine 48000, dispositivo 44100). Inclui as três capturas reais e Load Latest. |
+| Pacote Windows Development final | HorrorFrameworkAuditPackage_20261105: build, cook, stage, pak e archive passaram. FrameworkAuditPackage.log registra cook com zero erros/avisos. |
+| Percurso integrado no pacote | FrameworkValidation_AuditPkgIntegrated01_Integrated_Runtime: passou com aviso transitório de Recast. |
+| Streaming no pacote e novo processo | FrameworkValidation_AuditPkgStreaming01_Streaming_Runtime: passou com avisos transitórios de navegação/Recast. Streaming_Cold: passou sem falhas/avisos. |
+| Configurações no pacote e novo processo | FrameworkValidation_AuditPkgControls01_Controls_Runtime: passou com aviso transitório de Recast. Controls_Cold: passou sem falhas/avisos. |
+| Eventos no pacote e novo processo | FrameworkValidation_AuditPkgEvents01_Events_Runtime: passou com aviso transitório de Recast. Events_Cold: passou sem falhas/avisos. |
+| Esconderijos no pacote e novo processo | FrameworkValidation_AuditPkgHiding01_Hiding_Runtime e Hiding_Cold: passaram sem falhas/avisos. |
+| Perseguição real no pacote final | FrameworkValidation_AuditPkgLive01_Live_Runtime: passou sem falhas/avisos, ainda com timestep fixo de 60 FPS. |
+| Perseguição real com 15 FPS efetivos | FrameworkValidation_AuditPkgLive15Actual_Live_Runtime: passou sem falhas/avisos. Override de bUseFixedFrameRate=False apenas no processo de teste, t.MaxFPS=15; os registros mostram 46 quadros em cerca de 3,07 segundos. |
+
+As dez execuções de suíte/reinício no pacote passaram; a execução adicional com 15 FPS reais também passou. Os avisos não foram suprimidos nem convertidos em sucesso sem registro. O percurso de conclusão usa teletransportes e desativa a captura para isolar as transações; a suíte LivePursuit complementa isso com percepção, navegação e captura reais, sem broadcast artificial de OnCaptured. As velocidades/posições controladas do fixture são explicadas no documento da rodada.
+
+As capturas Integrated_Inspection.png, SettingsControls.png e SettingsAudio.png do Editor -game foram inspecionadas a 1280×720: conteúdo legível, abas laterais visíveis e ausência de sobreposição bloqueante. As malhas e algumas telas continuam sendo protótipos. As capturas e os relatórios ficam em diretórios com os nomes citados no TEMP do usuário; não foram incluídos como binários no repositório.
+
+O script Scripts/Validate-Framework.ps1 permite repetir as suítes, seleciona o executável do Editor/pacote, impede reutilização acidental do diretório inicial, aguarda processos GUI, verifica a existência e o conteúdo do relatório e retorna erro em falhas. O primeiro disparo empacotado terminou no executor antes de o processo GUI encerrar; o jogo concluiu o teste com relatório válido e saída zero. O executor foi corrigido para espera explícita antes das suítes restantes. As primeiras tentativas PIE precisaram de keep-alive do Python e reinício de PIE após a preparação da automação, que encerra sessões já abertas. A terceira tentativa executou o protocolo integralmente; as anteriores não contam como validação bem-sucedida.
+
+Avisos restantes: CrowdManager/Recast e uma tentativa de rota para (0,0,90.15) durante trocas/reinícios, recuperada nas atualizações seguintes; o teste de perseguição entre áreas e as restaurações passaram. Em Editor -game, ao abrir mapas de demonstração anteriores, também apareceram avisos sobre configurações HLOD de WorldPartitionHLODUtilities, um módulo de editor. Esses avisos não apareceram na execução empacotada correspondente e o cook passou. A inicialização de toolsets Python da engine em Editor -game continua emitindo os erros previamente registrados de AgentSkill/PythonTestRunner; o pacote não usa esses toolsets. Não foram removidos plugins para ocultar mensagens.
+
+Outra configuração identificada foi o timestep global fixo em 60 FPS, que mascara o limite de FPS escolhido. A decisão foi inicialmente solicitada ao usuário e a rodada acima usou somente um override no processo de teste. Depois, o usuário autorizou desativá-lo no projeto; os resultados dessa alteração estão na seção seguinte.
+
+Nenhum save/preferência pessoal foi usado, nenhum asset de conteúdo foi alterado e não houve commit/push. Permanecem fora da rodada: partida humana contínua para ritmo/dificuldade, teste físico de controle, Shipping, migração de arquivos históricos, transferência real dos plugins para outro projeto e perfil de desempenho com Unreal Insights.
+
+
+## Limite de FPS controlado por Vídeo (05/11/2026)
+
+Após autorização do usuário, HorrorGameFramework/Config/DefaultEngine.ini passou a usar bUseFixedFrameRate=False. FixedFrameRate=60 permanece como valor inativo. O limitador de quadros agora pode seguir GameUserSettings e o seletor do template de Vídeo.
+
+A suíte Controls foi ampliada para localizar ComboBoxString_FRAME_RATE_LIMIT no WBP_MainSettings real, selecionar 30 FPS e 60 FPS e disparar o mesmo delegate de seleção usado pela interface. Ela verifica que GameUserSettings.FrameRateLimit e t.MaxFPS recebem cada valor, exige o timestep global desativado e restaura a opção inicial antes de continuar os testes de abas/controles. O executor não injeta limites nem overrides de timing nessa suíte, evitando mascarar a configuração do projeto ou bloquear o seletor com uma variável de console de prioridade superior.
+
+| Verificação executada | Resultado |
+| --- | --- |
+| Build completo Editor Development/Win64 | VideoFrameRateBuild.log: passou. |
+| Menu real, Editor -game com renderização | HorrorControlsRuntime_VideoFPS01: passou com o aviso transitório conhecido de Recast durante reinício do mundo. Sem override de timestep/limite. |
+| Pacote Windows Development | HorrorVideoFrameRatePackage_20261105: build, cook, stage, pak e archive passaram. VideoFrameRatePackage.log: cook com zero erros/avisos. |
+| Menu real no pacote com renderização | FrameworkValidation_VideoFPSPackage01_Controls_Runtime: passou, incluindo seleções de 30/60 FPS e conferência do limitador da engine; aviso transitório de Recast. Sem overrides de timing. |
+| Reinício do pacote | FrameworkValidation_VideoFPSPackage01_Controls_Cold: passou sem falhas/avisos. Recuperação das preferências de controles existentes. |
+| Percurso integrado no pacote com timestep variável | FrameworkValidation_VideoFPSIntegrated01_Integrated_Runtime: passou com os avisos transitórios conhecidos de Recast durante recriação de mapas. |
+
+Todas essas execuções usaram diretórios de teste separados. Não foram alterados Blueprints, assets de conteúdo ou saves pessoais. Não houve commit/push. Os avisos de navegação e as limitações de avaliação manual da seção anterior permanecem registrados.

@@ -15,6 +15,9 @@
 #include "Controls/ControlSettingsScreen.h"
 #include "Controls/MainSettingsScreen.h"
 #include "Components/Button.h"
+#include "Components/ComboBoxString.h"
+#include "GameFramework/GameUserSettings.h"
+#include "HAL/IConsoleManager.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/TextBlock.h"
 #include "Audio/AudioSettingsScreen.h"
@@ -74,6 +77,23 @@ namespace ControlSettingsTest
                 UI->OpenSettingsUI();
                 Hub = Cast<UMainSettingsScreen>(UI->GetTopScreen());
                 if (!Test->TestNotNull(TEXT("Settings template exists"), Hub.Get())) return true;
+                auto* FrameLimit = Cast<UComboBoxString>(Hub->GetWidgetFromName(TEXT("ComboBoxString_FRAME_RATE_LIMIT")));
+                if (!Test->TestNotNull(TEXT("Video template exposes the frame-rate selector"), FrameLimit)) return true;
+                Test->TestFalse(TEXT("Global fixed timestep must not override Video preferences"), GEngine->bUseFixedFrameRate);
+                const FString PreviousOption = FrameLimit->GetSelectedOption();
+                auto* UserSettings = GEngine->GetGameUserSettings();
+                IConsoleVariable* MaxFPS = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+                if (!Test->TestNotNull(TEXT("Engine frame limiter exists"), MaxFPS)) return true;
+                for (const auto& Selection : { TPair<FString, float>(TEXT("30 FPS"), 30.f), TPair<FString, float>(TEXT("60 FPS"), 60.f) })
+                {
+                    if (!Test->TestTrue(TEXT("Frame-rate option exists in the template"), FrameLimit->FindOptionIndex(Selection.Key) != INDEX_NONE)) return true;
+                    FrameLimit->SetSelectedOption(Selection.Key);
+                    FrameLimit->OnSelectionChanged.Broadcast(Selection.Key, ESelectInfo::OnMouseClick);
+                    Test->TestTrue(*FString::Printf(TEXT("Video selection %s reaches saved settings and the engine limiter"), *Selection.Key),
+                        FMath::IsNearlyEqual(UserSettings->GetFrameRateLimit(), Selection.Value) && FMath::IsNearlyEqual(MaxFPS->GetFloat(), Selection.Value));
+                }
+                FrameLimit->SetSelectedOption(PreviousOption);
+                FrameLimit->OnSelectionChanged.Broadcast(PreviousOption, ESelectInfo::OnMouseClick);
                 Capture(TEXT("SettingsVideo.png"));
                 Phase = 1;
                 WaitUntil = Now + .5;
