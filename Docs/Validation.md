@@ -459,3 +459,35 @@ A suíte Controls foi ampliada para localizar ComboBoxString_FRAME_RATE_LIMIT no
 | Percurso integrado no pacote com timestep variável | FrameworkValidation_VideoFPSIntegrated01_Integrated_Runtime: passou com os avisos transitórios conhecidos de Recast durante recriação de mapas. |
 
 Todas essas execuções usaram diretórios de teste separados. Não foram alterados Blueprints, assets de conteúdo ou saves pessoais. Não houve commit/push. Os avisos de navegação e as limitações de avaliação manual da seção anterior permanecem registrados.
+
+
+## 06/11/2026 — Etapa 12: IA e portas
+
+Partida no commit `f1e6f75`, repositório limpo. Escopo aprovado: respeitar trancas por chave/puzzle, procurar outra rota ou investigar o lado acessível, aguardar antes de abrir uma porta destrancada e deixá-la aberta. Implementação e autoria em [EnemyDoorsImplementation.md](EnemyDoorsImplementation.md).
+
+Build completo `HorrorGameFrameworkEditor / Development / Win64` aprovado (`AIDoorsFinalBuild.log`). Blueprints consumidores da demonstração compilados pela API do Editor; somente o mapa integrado e o novo perfil de portas foram salvos. Empacotamento Windows Development aprovado (`AIDoorsPackage.log`, BuildCookRun ExitCode=0); cook com 0 erros e 0 avisos. Pacote em `%TEMP%/HorrorAIDoorsPackage_20261106/Windows`.
+
+| Verificação | Aprovados | Aprovados com avisos | Falhas | Relatório em %TEMP% |
+| --- | ---: | ---: | ---: | --- |
+| Regressão final no Editor | 35 | 0 | 0 | `FrameworkValidation_DoorsRegressionFinal_Regression_Runtime` |
+| Portas no Editor -game, renderizado | 1 | 0 | 0 | `FrameworkValidation_DoorsRender03_Doors_Runtime` |
+| Portas após novo processo Editor -game | 1 | 0 | 0 | `FrameworkValidation_DoorsRender03_Doors_Cold` |
+| Portas em PIE | 0 | 1 | 0 | `AIDoorsPIE` |
+| Portas no pacote, renderizado | 1 | 0 | 0 | `FrameworkValidation_DoorsPackage01_Doors_Runtime` |
+| Portas após novo processo do pacote | 1 | 0 | 0 | `FrameworkValidation_DoorsPackage01_Doors_Cold` |
+| Portas no pacote, limite de 15 FPS | 1 | 0 | 0 | `FrameworkValidation_DoorsPackage15_Doors_Runtime` |
+| Percurso integrado no pacote | 0 | 1 | 0 | `FrameworkValidation_DoorsIntegrated01_Integrated_Runtime` |
+| Perseguição/esconderijo no pacote, 15 FPS | 1 | 0 | 0 | `FrameworkValidation_DoorsLive01_Live_Runtime` |
+| Streaming e perseguição entre áreas no pacote | 0 | 1 | 0 | `FrameworkValidation_DoorsStreaming01_Streaming_Runtime` |
+
+A regressão geral inclui o novo teste determinístico `HorrorFramework.Threat.DoorContractAndRestore`; os protocolos opt-in de gameplay são executados separadamente nas linhas Doors. O protocolo real verifica visão/perseguição, fechamento pelo jogador, aproximação pelo NavMesh, espera sem movimento, pausa, abertura após o atraso, passagem física, porta mantida aberta, rewind durante espera, ausência de abertura tardia, tranca sem caminho completo e rota alternativa sem destrancar. A leitura em outro processo verifica a restauração e uma nova aproximação/abertura/travessia.
+
+O roteiro de portas a 15 FPS registrou 30 quadros em aproximadamente 2,00 segundos entre mensagens de progresso; o timestep fixo estava desativado. A suíte Live registrou 47 quadros em aproximadamente 3,14 segundos. Esses dados confirmam a taxa reduzida da simulação, sem constituir benchmark.
+
+Capturas `EnemyDoorWaiting.png` e `EnemyDoorOpen.png` inspecionadas em 1280x720 em `%TEMP%/HorrorDoorTest_DoorsPackage01/Saved/Screenshots`. A folha do protótipo abre pelo centro; os pontos do vínculo passam ao lado da folha aberta, com colisão normal. O teste de rota alternativa reduz a largura da porta apenas na instância temporária da execução; essa alteração não foi salva no mapa.
+
+Dois problemas encontrados durante a implementação foram corrigidos antes da rodada final: `StopMovementImmediately` abortava a rota pausada ao chegar ao vínculo, por isso a espera passou a usar somente `PauseMove` com Reset; o primeiro fixture de save resolvia o puzzle sem preencher os itens dos encaixes, e foi corrigido para gerar um snapshot consistente com a validação existente. Nenhuma validação do save foi desativada.
+
+Avisos: a execução PIE foi aprovada com `LogAudioMixerWasapi: InitializeHardware failed SetClientProperties AUDCLNT_E_RAW_MODE_UNSUPPORTED`, do dispositivo de áudio. O percurso integrado e o ciclo de streaming podem registrar `Unable to find RecastNavMesh instance while trying to create UCrowdManager instance` durante recriação dos mundos; a navegação subsequente e os testes passaram. A suíte Streaming também registrou uma tentativa transitória `Cannot navigate` durante o ciclo de reconstrução; posteriormente confirmou perseguição entre áreas e concluiu o protocolo. Consulte as entradas de cada relatório para os avisos exatos. As suítes Doors do pacote, leitura a frio, baixa taxa de quadros e Live passaram sem avisos de teste.
+
+Saves, preferências, relatórios e pacote usam diretórios temporários próprios. Nenhum slot pessoal foi utilizado. Não houve teste manual contínuo de 10–15 minutos, benchmark, Shipping ou teste de prioridade entre vários inimigos disputando a mesma porta. A autoria continua exigindo NavMesh válido e espaço físico de passagem. Não foram adicionados arrombamento ou novas animações.

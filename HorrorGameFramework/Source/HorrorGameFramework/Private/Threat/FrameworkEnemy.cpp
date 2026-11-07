@@ -42,7 +42,8 @@ bool AFrameworkEnemy::ValidateSaveState(FString& Error) const
 }
 void AFrameworkEnemy::OnSaveStateRestored()
 {
-    if (AHorrorEnemyController* AI = Cast<AHorrorEnemyController>(GetController())) AI->StopMovement();
+    if (AHorrorEnemyController* AI = Cast<AHorrorEnemyController>(GetController()))
+    { AI->CancelDoorInteraction(); AI->StopMovement(); }
     // All participants, including the player's concealment, must finish their restoration first.
     RestoreTimer = GetWorldTimerManager().SetTimerForNextTick(this, &AFrameworkEnemy::ResumeAfterRestore);
 }

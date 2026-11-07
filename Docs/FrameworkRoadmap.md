@@ -83,3 +83,6 @@ Em 04/11/2026, as abas de Configurações passaram a compartilhar o mesmo templa
 A etapa 10 adiciona eventos e sustos configuráveis, descritos em [EventsImplementation.md](EventsImplementation.md). O plugin HorrorEvents organiza condições, passos, execução e progresso. Os adaptadores conectam volume/interação/progresso, áudio, percepção, objetivos, inventário e save. O mapa integrado inclui um susto de corredor de execução única. Snapshots em andamento restauram o estado final sem reproduzir sons. Resultados em Validation.md.
 
 A etapa 11 acrescenta entrada/saída suave de esconderijos, porta ou tampa configurável por Data Asset, proteção somente após a entrada e restauração estável de saves durante transições. Arquitetura e configuração em [HidingTransitionsImplementation.md](HidingTransitionsImplementation.md); resultados em Validation.md.
+
+
+A etapa 12 acrescenta interação da IA com portas destrancadas: espera configurável, travessia navegada e porta mantida aberta. Trancas por chave/puzzle são respeitadas, com rota alternativa ou investigação pelo lado acessível. Configuração, arquitetura e limites em [EnemyDoorsImplementation.md](EnemyDoorsImplementation.md).

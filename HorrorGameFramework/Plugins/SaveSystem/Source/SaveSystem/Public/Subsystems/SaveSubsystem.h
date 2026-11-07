@@ -86,6 +86,7 @@ private:
     friend class FHorrorDialogueColdRestartTest;
     friend class FHorrorThreatWorldSaveTest;
     friend class FHorrorHidingTransitionTest;
+    friend class FHorrorEnemyDoorTest;
     bool CaptureWorld(USystemSaveGame* Snapshot, FString& Error, FName AreaId = NAME_None, bool bOnlyArea = false);
     bool RestoreWorld(const USystemSaveGame* Snapshot, FString& Error, FName AreaId = NAME_None, bool bOnlyArea = false);
     void OnSlotSaved(const FString& SlotName, int32 UserIndex, bool bSuccess);

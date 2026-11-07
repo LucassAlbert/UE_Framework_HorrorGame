@@ -1,6 +1,9 @@
 #include "HorrorEnemyController.h"
 #include "HorrorEnemyCharacter.h"
 #include "HorrorAITargetComponent.h"
+#include "HorrorAIDoor.h"
+#include "HorrorDoorNavigationComponent.h"
+#include "HorrorDoorTraversalDefinition.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISenseConfig_Hearing.h"
@@ -140,6 +143,7 @@ void AHorrorEnemyController::ChangeEnemyState(EHorrorEnemyState State)
 {
     AHorrorEnemyCharacter* User = Enemy.Get();
     if (!User) return;
+    CancelDoorInteraction();
     StopMovement();
     bMoveRequested = false;
     User->Memory.State = State;
@@ -154,7 +158,7 @@ void AHorrorEnemyController::ChangeEnemyState(EHorrorEnemyState State)
 void AHorrorEnemyController::RequestDestination(FVector Goal)
 {
     const AHorrorEnemyCharacter* User = Enemy.Get();
-    if (!User || Goal.ContainsNaN()) return;
+    if (!User || Goal.ContainsNaN() || DoorUseState != EDoorUseState::None) return;
     if (bMoveRequested && FVector::DistSquared(MoveGoal, Goal) < 2500.f && GetMoveStatus() == EPathFollowingStatus::Moving) return;
     MoveGoal = Goal;
     bMoveRequested = true;
@@ -162,7 +166,9 @@ void AHorrorEnemyController::RequestDestination(FVector Goal)
     const float Acceptance = User->Memory.State == EHorrorEnemyState::Chase
         ? FMath::Min(User->Definition->ArrivalRadius, User->Definition->CaptureDistance * .5f)
         : User->Definition->ArrivalRadius;
-    const EPathFollowingRequestResult::Type Result = MoveToLocation(Goal, Acceptance, false, true, false, false, nullptr, false);
+    // Investigation may approach the reachable side of a blocked last-known location.
+    const bool bAllowPartial = User->Memory.State == EHorrorEnemyState::Investigate;
+    const EPathFollowingRequestResult::Type Result = MoveToLocation(Goal, Acceptance, false, true, false, false, nullptr, bAllowPartial);
     if (Result == EPathFollowingRequestResult::Failed && !bReportedNavigationFailure)
     {
         UE_LOG(LogHorrorAI, Warning, TEXT("Cannot navigate %s to %s. Check NavMesh bounds, route and obstacles."), *GetNameSafe(User), *Goal.ToCompactString());
@@ -179,6 +185,7 @@ void AHorrorEnemyController::AdvancePatrol()
 }
 void AHorrorEnemyController::BeginSearch()
 {
+    if (const AHorrorEnemyCharacter* User = Enemy.Get()) SearchOrigin = User->GetActorLocation();
     ChangeEnemyState(EHorrorEnemyState::Search);
     ChooseSearchGoal();
 }
@@ -187,7 +194,7 @@ void AHorrorEnemyController::ChooseSearchGoal()
     const AHorrorEnemyCharacter* User = Enemy.Get();
     UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
     FNavLocation Location;
-    if (Navigation && User && Navigation->GetRandomReachablePointInRadius(User->Memory.LastKnownLocation, User->Definition->SearchRadius, Location)) RequestDestination(Location.Location);
+    if (Navigation && User && Navigation->GetRandomReachablePointInRadius(SearchOrigin, User->Definition->SearchRadius, Location)) RequestDestination(Location.Location);
 }
 bool AHorrorEnemyController::CaptureIfClose(UHorrorAITargetComponent* Target, FVector Location, AActor* Anchor)
 {
@@ -208,7 +215,8 @@ void AHorrorEnemyController::UpdateBrain()
     const double Now = GetWorld()->GetTimeSeconds();
     const float Elapsed = FMath::Max(0.f, static_cast<float>(Now - LastUpdateTime));
     LastUpdateTime = Now;
-    if (User->Memory.State >= EHorrorEnemyState::Captured) return;
+    if (User->Memory.State >= EHorrorEnemyState::Captured) { CancelDoorInteraction(); return; }
+    if (UpdateDoorTraversal(Elapsed)) return;
     User->Memory.RemainingTime = FMath::Max(0.f, User->Memory.RemainingTime - Elapsed);
     TArray<AActor*> Visible;
     Senses->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), Visible);
@@ -247,6 +255,7 @@ void AHorrorEnemyController::UpdateBrain()
     {
         if (!User->Memory.bHasLastKnownLocation) { ChangeEnemyState(EHorrorEnemyState::Patrol); return; }
         if (FVector::Dist2D(User->GetActorLocation(), User->Memory.LastKnownLocation) <= User->Definition->ArrivalRadius
+            || (bMoveRequested && GetMoveStatus() == EPathFollowingStatus::Idle)
             || User->Memory.RemainingTime <= 0.f) { BeginSearch(); return; }
         RequestDestination(User->Memory.LastKnownLocation);
         return;
@@ -270,8 +279,11 @@ void AHorrorEnemyController::ResumeAfterRestore()
 {
     AHorrorEnemyCharacter* User = Enemy.Get();
     if (!bReady || !User) return;
+    CancelDoorInteraction();
+    SearchOrigin = User->GetActorLocation();
     SetTarget(nullptr);
     Senses->ForgetAll();
+    CancelDoorInteraction();
     StopMovement();
     bMoveRequested = false;
     LastUpdateTime = GetWorld()->GetTimeSeconds();
@@ -298,6 +310,7 @@ void AHorrorEnemyController::ResumeAfterRestore()
 void AHorrorEnemyController::Shutdown()
 {
     bReady = false;
+    CancelDoorInteraction();
     GetWorldTimerManager().ClearTimer(BrainTimer);
     SetTarget(nullptr);
     Senses->OnTargetPerceptionUpdated.RemoveDynamic(this, &AHorrorEnemyController::HandlePerception);
@@ -307,3 +320,98 @@ void AHorrorEnemyController::Shutdown()
 }
 void AHorrorEnemyController::OnUnPossess() { Shutdown(); Super::OnUnPossess(); }
 void AHorrorEnemyController::EndPlay(const EEndPlayReason::Type Reason) { Shutdown(); Super::EndPlay(Reason); }
+
+bool AHorrorEnemyController::CanUseDoor(const UHorrorDoorNavigationComponent* Link) const
+{
+    const AHorrorEnemyCharacter* User = Enemy.Get();
+    if (!bReady || !User || !IsValid(Link) || Link->GetWorld() != GetWorld() || !Link->HasValidConfiguration()) return false;
+    AActor* Door = Link->GetOwner();
+    if (IHorrorAIDoor::Execute_IsAIDoorLocked(Door)) return false;
+    if (IHorrorAIDoor::Execute_IsAIDoorOpen(Door)) return User->Memory.State < EHorrorEnemyState::Captured;
+    const bool bFollowingProgress = User->Memory.State == EHorrorEnemyState::Chase
+        || User->Memory.State == EHorrorEnemyState::Investigate || User->Memory.State == EHorrorEnemyState::Search;
+    return bFollowingProgress && IHorrorAIDoor::Execute_CanAIOpenDoor(Door, Enemy.Get());
+}
+bool AHorrorEnemyController::IsWaitingForDoor() const { return DoorUseState == EDoorUseState::Waiting; }
+AActor* AHorrorEnemyController::GetCurrentDoor() const { return DoorLink.IsValid() ? DoorLink->GetOwner() : nullptr; }
+bool AHorrorEnemyController::BeginDoorTraversal(UHorrorDoorNavigationComponent* Link, UPathFollowingComponent* Path, FVector ExitPoint)
+{
+    if (DoorUseState != EDoorUseState::None || !CanUseDoor(Link) || !Path || Path != GetPathFollowingComponent()
+        || ExitPoint.ContainsNaN() || GetWorld()->IsPaused()) return false;
+    const float Distance = FVector::Dist(GetPawn()->GetActorLocation(), Link->GetOwner()->GetActorLocation());
+    if (Distance > Link->Definition->InteractionDistance) return false;
+    DoorLink = Link;
+    DoorPath = Path;
+    DoorExit = ExitPoint;
+    LastUpdateTime = GetWorld()->GetTimeSeconds();
+    if (IHorrorAIDoor::Execute_IsAIDoorOpen(Link->GetOwner()))
+    {
+        DoorUseState = EDoorUseState::Crossing;
+        DoorRemaining = Link->Definition->CrossingTimeoutSeconds;
+    }
+    else
+    {
+        DoorUseState = EDoorUseState::Waiting;
+        DoorRemaining = Link->Definition->OpenDelaySeconds;
+        // PauseMove resets velocity while preserving the active navigation request.
+        Path->PauseMove(FAIRequestID::CurrentRequest, EPathFollowingVelocityMode::Reset);
+    }
+    return true;
+}
+void AHorrorEnemyController::NotifyDoorTraversalFinished(UHorrorDoorNavigationComponent* Link)
+{
+    if (DoorLink.Get() != Link) return;
+    DoorUseState = EDoorUseState::None;
+    DoorLink.Reset();
+    DoorPath.Reset();
+    DoorRemaining = 0;
+    bMoveRequested = false;
+}
+void AHorrorEnemyController::FinishDoorTraversal(bool bAbortMove)
+{
+    UHorrorDoorNavigationComponent* Link = DoorLink.Get();
+    UPathFollowingComponent* Path = DoorPath.Get();
+    DoorUseState = EDoorUseState::None;
+    DoorLink.Reset();
+    DoorPath.Reset();
+    DoorRemaining = 0;
+    bMoveRequested = false;
+    if (Path && Link) Path->FinishUsingCustomLink(Link);
+    if (bAbortMove) StopMovement();
+}
+void AHorrorEnemyController::CancelDoorInteraction()
+{
+    if (DoorUseState != EDoorUseState::None) FinishDoorTraversal(true);
+}
+bool AHorrorEnemyController::UpdateDoorTraversal(float Elapsed)
+{
+    if (DoorUseState == EDoorUseState::None) return false;
+    UHorrorDoorNavigationComponent* Link = DoorLink.Get();
+    UPathFollowingComponent* Path = DoorPath.Get();
+    AHorrorEnemyCharacter* User = Enemy.Get();
+    if (!Link || !Path || !User || !CanUseDoor(Link)
+        || (TrackedTarget.IsValid() && !TrackedTarget->IsAvailable())
+        || FVector::Dist(User->GetActorLocation(), Link->GetOwner()->GetActorLocation()) > Link->Definition->InteractionDistance)
+    { CancelDoorInteraction(); return false; }
+    UHorrorAITargetComponent* Target = TrackedTarget.Get();
+    if (Target && !Target->IsConcealed() && CaptureIfClose(Target, Target->GetOwner()->GetActorLocation(), nullptr)) return true;
+    if (DoorUseState == EDoorUseState::Waiting)
+    {
+        DoorRemaining = FMath::Max(0.f, DoorRemaining - Elapsed);
+        AActor* Door = Link->GetOwner();
+        const bool bOpen = IHorrorAIDoor::Execute_IsAIDoorOpen(Door);
+        if (!bOpen && DoorRemaining > 0) return true;
+        if (!bOpen && !IHorrorAIDoor::Execute_OpenDoorForAI(Door, User)) { CancelDoorInteraction(); return false; }
+        if (DoorLink.Get() != Link || DoorUseState == EDoorUseState::None) return true;
+        DoorUseState = EDoorUseState::Crossing;
+        DoorRemaining = Link->Definition->CrossingTimeoutSeconds;
+        Path->ResumeMove(FAIRequestID::CurrentRequest);
+    }
+    else
+    {
+        DoorRemaining -= Elapsed;
+        if (FVector::DistSquared2D(User->GetActorLocation(), DoorExit) <= FMath::Square(50.f)) FinishDoorTraversal(false);
+        else if (DoorRemaining <= 0) FinishDoorTraversal(true);
+    }
+    return true;
+}

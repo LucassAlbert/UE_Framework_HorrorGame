@@ -42,7 +42,7 @@ Exemplos, a partir da raiz do repositório:
 .\Scripts\Validate-Framework.ps1 -Suite Streaming -RunId Areas01 -Cold
 ```
 
-O mesmo RunId liga uma execução inicial à leitura em processo novo. Cold está disponível para Streaming, Controls, Events e Hiding. EngineRoot permite indicar outra instalação compatível de UE 5.8. OutputRoot escolhe o local de relatórios e diretórios temporários. PackageRoot deve apontar à pasta Windows do pacote Development; a regressão geral permanece no Editor porque inclui testes EditorContext.
+O mesmo RunId liga uma execução inicial à leitura em processo novo. Cold está disponível para Streaming, Controls, Events, Hiding e Doors. EngineRoot permite indicar outra instalação compatível de UE 5.8. OutputRoot escolhe o local de relatórios e diretórios temporários. PackageRoot deve apontar à pasta Windows do pacote Development; a regressão geral permanece no Editor porque inclui testes EditorContext.
 
 Render cria capturas quando a suíte já oferece esse recurso. MaxFPS limita a taxa de quadros pelo console. Nas suítes que exercitam taxas de quadros, o roteiro desativa o timestep fixo somente naquele processo com um override de configuração. A suíte Controls usa a configuração real do projeto e nenhum comando de limite externo, pois testa as próprias opções de Vídeo de 30 e 60 FPS. O limite não é um benchmark de desempenho.
 
@@ -58,3 +58,8 @@ Resultados, avisos e evidências desta rodada em [Validation.md](Validation.md).
 Na inspeção inicial, DefaultEngine.ini continha bUseFixedFrameRate=True e FixedFrameRate=60. Essa opção força o timestep e prevalece sobre t.MaxFPS no cálculo do limite do tick da engine. A primeira execução solicitada a 15 FPS ainda registrava aproximadamente 60 quadros por segundo; ela não foi considerada prova de baixa taxa de quadros. O roteiro foi corrigido para usar um override apenas no processo de teste. A rodada AuditPkgLive15Actual registrou 46 quadros em aproximadamente 3,07 segundos entre mensagens e passou.
 
 O usuário autorizou desativar a simulação fixa global. DefaultEngine.ini passou a usar bUseFixedFrameRate=False. O valor FixedFrameRate=60 fica inativo, e o limite é aplicado por GameUserSettings a partir da seleção em Vídeo. A suíte Controls verifica pelo ComboBox real que as opções de 30 e 60 FPS chegam ao valor de preferências e à variável t.MaxFPS, além de exigir o timestep global desativado.
+
+
+## IA e portas
+
+A suíte Doors valida a interação com navegação real, espera pausável, abertura, travessia, rewind de save e respeito à tranca com e sem rota alternativa. Execute `-Suite Doors -RunId Portas01 -Render` e depois `-Suite Doors -RunId Portas01 -Cold`. `PackageRoot` permite executar os mesmos protocolos no pacote Development.

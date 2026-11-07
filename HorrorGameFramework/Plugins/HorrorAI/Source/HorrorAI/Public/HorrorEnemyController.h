@@ -11,6 +11,8 @@ class UHorrorAITargetComponent;
 class UAIPerceptionComponent;
 class UAISenseConfig_Sight;
 class UAISenseConfig_Hearing;
+class UHorrorDoorNavigationComponent;
+class UPathFollowingComponent;
 
 UCLASS()
 class HORRORAI_API AHorrorEnemyController : public AAIController
@@ -19,12 +21,22 @@ class HORRORAI_API AHorrorEnemyController : public AAIController
 public:
     AHorrorEnemyController();
     void ResumeAfterRestore();
+    bool CanUseDoor(const UHorrorDoorNavigationComponent* Link) const;
+    bool BeginDoorTraversal(UHorrorDoorNavigationComponent* Link, UPathFollowingComponent* Path, FVector ExitPoint);
+    void NotifyDoorTraversalFinished(UHorrorDoorNavigationComponent* Link);
+    void CancelDoorInteraction();
+    UFUNCTION(BlueprintPure, Category="AI|Door") bool IsWaitingForDoor() const;
+    UFUNCTION(BlueprintPure, Category="AI|Door") AActor* GetCurrentDoor() const;
 protected:
     virtual void OnPossess(APawn* InPawn) override;
     virtual void OnUnPossess() override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 private:
     friend class FHorrorEnemyBehaviorTest;
+    friend class FHorrorEnemyDoorTest;
+    enum class EDoorUseState : uint8 { None, Waiting, Crossing };
+    bool UpdateDoorTraversal(float Elapsed);
+    void FinishDoorTraversal(bool bAbortMove);
     void UpdateBrain();
     void ChangeEnemyState(EHorrorEnemyState State);
     void SetTarget(AActor* Actor);
@@ -47,6 +59,12 @@ private:
     TWeakObjectPtr<AActor> WitnessedAnchor;
     FVector WitnessedEntry = FVector::ZeroVector;
     FVector MoveGoal = FVector::ZeroVector;
+    FVector SearchOrigin = FVector::ZeroVector;
+    TWeakObjectPtr<UHorrorDoorNavigationComponent> DoorLink;
+    TWeakObjectPtr<UPathFollowingComponent> DoorPath;
+    FVector DoorExit = FVector::ZeroVector;
+    EDoorUseState DoorUseState = EDoorUseState::None;
+    float DoorRemaining = 0.f;
     double LastUpdateTime = 0.0;
     bool bMoveRequested = false;
     bool bReady = false;

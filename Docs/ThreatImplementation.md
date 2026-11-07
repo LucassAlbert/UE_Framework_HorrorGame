@@ -44,3 +44,8 @@ O jogador guarda a identidade do esconderijo e a posição de retorno. Os callba
 
 
 A entrada e a saída suaves dos esconderijos foram acrescentadas em 05/11/2026. Estados, perfil de porta/tampa, regras de proteção e saves durante a animação estão em [HidingTransitionsImplementation.md](HidingTransitionsImplementation.md).
+
+
+## Portas durante perseguição, investigação e busca
+
+A etapa 12 introduz um contrato independente de porta, componente de navegação e espera configurada por Data Asset. Consulte [EnemyDoorsImplementation.md](EnemyDoorsImplementation.md) para autoria, interrupções e regras de restauração.

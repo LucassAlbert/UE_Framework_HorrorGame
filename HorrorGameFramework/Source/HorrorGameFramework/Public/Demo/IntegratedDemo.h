@@ -44,6 +44,8 @@ public:
     virtual void Interact_Implementation(AActor* Interactor) override;
     virtual FText GetInteractionText_Implementation() const override;
     virtual void OnActorLoaded_Implementation() override;
+    virtual bool CanAIOpenDoor_Implementation(APawn* Agent) const override { return false; }
+    virtual bool OpenDoorForAI_Implementation(APawn* Agent) override { return false; }
 protected:
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 private:

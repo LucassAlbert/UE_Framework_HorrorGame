@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory)][ValidateSet('Regression','Integrated','Streaming','Controls','Events','Hiding','Live')][string]$Suite,
+    [Parameter(Mandatory)][ValidateSet('Regression','Integrated','Streaming','Controls','Events','Hiding','Live','Doors')][string]$Suite,
     [ValidatePattern('^[A-Za-z0-9_-]+$')][string]$RunId = (Get-Date -Format 'yyyyMMdd_HHmmss'),
     [string]$EngineRoot = 'C:/Program Files/Epic Games/UE_5.8',
     [string]$PackageRoot,
@@ -17,6 +17,7 @@ $cases = @{
     Controls = @('HorrorFramework.Controls.Runtime','ControlsRuntimeTest','HorrorControlsTest','/Game/Maps/FrameworkIntegrated_Demo')
     Events = @('HorrorFramework.Events.Runtime','EventsRuntimeTest','HorrorEventsTest','/Game/Maps/FrameworkIntegrated_Demo')
     Hiding = @('HorrorFramework.Hiding.Runtime','HidingRuntimeTest','HorrorHidingTest','/Game/Maps/FrameworkIntegrated_Demo')
+    Doors = @('HorrorFramework.Doors.Runtime','EnemyDoorsRuntimeTest','HorrorDoorTest','/Game/Maps/FrameworkIntegrated_Demo')
     Live = @('HorrorFramework.Validation.LivePursuit','FrameworkLiveAudit','HorrorAuditLive','/Game/Maps/FrameworkIntegrated_Demo')
 }
 $case = $cases[$Suite]
@@ -28,6 +29,7 @@ if ($Cold) {
         Controls { $testName='HorrorFramework.Controls.ColdRead'; $flag='ControlsColdRead' }
         Events { $testName='HorrorFramework.Events.ColdRead'; $flag='EventsColdRead' }
         Hiding { $testName='HorrorFramework.Hiding.ColdRead'; $flag='HidingColdRead' }
+        Doors { $testName='HorrorFramework.Doors.ColdRead'; $flag='EnemyDoorsColdRead' }
         default { throw "The $Suite suite has no cold-read protocol." }
     }
 }
@@ -63,6 +65,7 @@ if ($Render) {
         Controls { $engineArgs += '-ControlsCaptureRender' }
         Events { $engineArgs += '-EventsCaptureRender' }
         Hiding { $engineArgs += '-HidingCaptureRender' }
+        Doors { $engineArgs += '-DoorCaptureRender' }
     }
 } else { $engineArgs += '-nullrhi' }
 # Packaged games use the Windows GUI subsystem; wait explicitly for completion.
